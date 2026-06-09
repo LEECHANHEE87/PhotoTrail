@@ -25,7 +25,8 @@ import kotlinx.coroutines.withContext
 
 private enum class PhotoPermissionStatus {
     Required,
-    Granted,
+    FullAccess,
+    LimitedAccess,
     Denied
 }
 
@@ -36,11 +37,7 @@ fun HomeScreen() {
     val photoPermissions = photoPermissions()
     var permissionStatus by remember {
         mutableStateOf(
-            if (hasPhotoPermission(context)) {
-                PhotoPermissionStatus.Granted
-            } else {
-                PhotoPermissionStatus.Required
-            }
+            photoPermissionStatus(context, denied = false)
         )
     }
     var imageCount by remember { mutableStateOf<Int?>(null) }
@@ -50,17 +47,13 @@ fun HomeScreen() {
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        permissionStatus = if (hasPhotoPermission(context)) {
-            PhotoPermissionStatus.Granted
-        } else {
-            PhotoPermissionStatus.Denied
-        }
+        permissionStatus = photoPermissionStatus(context, denied = true)
         imageCount = null
         imageQueryFailed = false
     }
 
     LaunchedEffect(permissionStatus) {
-        if (permissionStatus == PhotoPermissionStatus.Granted) {
+        if (permissionStatus.hasPhotoAccess) {
             isLoadingImages = true
             imageQueryFailed = false
             imageCount = runCatching { queryImageCount(context) }
@@ -177,8 +170,10 @@ private fun PhotoAccessCard(
                 text = when (permissionStatus) {
                     PhotoPermissionStatus.Required ->
                         stringResource(R.string.photo_permission_required)
-                    PhotoPermissionStatus.Granted ->
+                    PhotoPermissionStatus.FullAccess ->
                         stringResource(R.string.photo_permission_granted)
+                    PhotoPermissionStatus.LimitedAccess ->
+                        stringResource(R.string.photo_permission_limited)
                     PhotoPermissionStatus.Denied ->
                         stringResource(R.string.photo_permission_denied)
                 },
@@ -186,7 +181,7 @@ private fun PhotoAccessCard(
                 fontWeight = FontWeight.SemiBold
             )
 
-            if (permissionStatus == PhotoPermissionStatus.Granted) {
+            if (permissionStatus.hasPhotoAccess) {
                 Text(
                     text = when {
                         isLoadingImages -> stringResource(R.string.photo_count_loading)
@@ -248,27 +243,45 @@ private fun photoPermissions(): Array<String> =
         else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
-private fun hasPhotoPermission(context: Context): Boolean =
+private fun photoPermissionStatus(
+    context: Context,
+    denied: Boolean
+): PhotoPermissionStatus =
     when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
-            context.hasPermission(Manifest.permission.READ_MEDIA_IMAGES) ||
-                context.hasPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
-            context.hasPermission(Manifest.permission.READ_MEDIA_IMAGES)
-        else -> context.hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            context.hasPermission(Manifest.permission.READ_MEDIA_IMAGES) ->
+            PhotoPermissionStatus.FullAccess
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            context.hasPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) ->
+            PhotoPermissionStatus.LimitedAccess
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.hasPermission(Manifest.permission.READ_MEDIA_IMAGES) ->
+            PhotoPermissionStatus.FullAccess
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU &&
+            context.hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ->
+            PhotoPermissionStatus.FullAccess
+        denied -> PhotoPermissionStatus.Denied
+        else -> PhotoPermissionStatus.Required
     }
+
+private val PhotoPermissionStatus.hasPhotoAccess: Boolean
+    get() = this == PhotoPermissionStatus.FullAccess ||
+        this == PhotoPermissionStatus.LimitedAccess
 
 private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
 private suspend fun queryImageCount(context: Context): Int = withContext(Dispatchers.IO) {
-    context.contentResolver.query(
+    val cursor = checkNotNull(context.contentResolver.query(
         MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
         arrayOf(MediaStore.Images.Media._ID),
         null,
         null,
         null
-    )?.use { cursor ->
+    )) {
+        "MediaStore image query returned no cursor"
+    }
+    cursor.use {
         cursor.count
-    } ?: 0
+    }
 }
