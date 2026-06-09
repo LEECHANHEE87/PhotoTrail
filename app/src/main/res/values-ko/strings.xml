@@ -1,17 +1,26 @@
 <resources>
     <string name="app_name">포토트레일</string>
-    <string name="app_description">사진을 지도 위에서 다시 보는 앱</string>
+    <string name="app_description">사진 메타데이터를 인덱싱하고 지도에서 추억을 다시 봅니다.</string>
     <string name="view_on_map">지도에서 보기</string>
     <string name="view_by_date">날짜별 사진 보기</string>
     <string name="view_no_location">위치 없는 사진 보기</string>
-    <string name="footer_text">현재는 기본 화면 구성 단계입니다.</string>
-    <string name="coming_soon">준비 중입니다</string>
-    <string name="photo_permission_required">권한 필요</string>
-    <string name="photo_permission_granted">권한 허용됨</string>
-    <string name="photo_permission_limited">선택한 사진만 허용됨</string>
-    <string name="photo_permission_denied">권한 거부됨</string>
-    <string name="request_photo_permission">사진 접근 권한 요청</string>
-    <string name="photo_count_loading">사진을 확인하는 중입니다.</string>
-    <string name="photo_count_found">사진 %1$d장 발견</string>
-    <string name="photo_count_failed">사진 개수를 조회하지 못했습니다.</string>
+    <string name="footer_text">MediaStore URI와 메타데이터만 저장합니다.</string>
+    <string name="photo_permission_required">사진 접근 권한이 필요합니다</string>
+    <string name="photo_permission_granted">모든 사진에 접근할 수 있습니다</string>
+    <string name="photo_permission_limited">선택한 사진에만 접근할 수 있습니다</string>
+    <string name="photo_permission_denied">사진 접근 권한이 거부되었습니다</string>
+    <string name="request_photo_permission">사진 접근 허용</string>
+    <string name="scan_photos">사진 스캔/인덱싱</string>
+    <string name="indexing_progress">인덱싱 중 %1$d / %2$d</string>
+    <string name="indexing_failed">인덱싱 실패: %1$s</string>
+    <string name="index_stats">전체 %1$d · 위치 있음 %2$d · 위치 없음 %3$d\n날짜 그룹 %4$d · 위치 그룹 %5$d</string>
+    <string name="map_screen_title">사진 지도</string>
+    <string name="photo_count">사진 %1$d장</string>
+    <string name="no_map_photos">인덱싱된 위치 사진이 없습니다. 먼저 사진을 스캔하세요.</string>
+    <string name="view_all">전체 보기</string>
+    <string name="location_photo_group">위치 사진 그룹</string>
+    <string name="date_group_stats">전체 %1$d · GPS 있음 %2$d · GPS 없음 %3$d</string>
+    <string name="no_indexed_photos">인덱싱된 사진이 없습니다. 먼저 사진을 스캔하세요.</string>
+    <string name="no_photos">이 그룹에 사진이 없습니다.</string>
+    <string name="back">뒤로</string>
 </resources>
