@@ -1,14 +1,21 @@
 package com.example.phototrail.ui
 
+import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -16,12 +23,18 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -32,7 +45,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.phototrail.R
@@ -43,7 +58,9 @@ private data class DatePhotoGroup(
     val dateKey: String,
     val totalCount: Int,
     val locationCount: Int,
-    val noLocationCount: Int
+    val noLocationCount: Int,
+    val locationGroupCount: Int,
+    val representativePhotoUri: String?
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,7 +68,8 @@ private data class DatePhotoGroup(
 fun DateListScreen(
     viewModel: PhotoViewModel,
     onBackClick: () -> Unit,
-    onOpenDate: (String) -> Unit
+    onOpenDate: (String) -> Unit,
+    onNavigateToMap: (String) -> Unit
 ) {
     val photos by viewModel.allPhotos.collectAsState()
     val groups = remember(photos) {
@@ -61,7 +79,12 @@ fun DateListScreen(
                     dateKey = dateKey,
                     totalCount = items.size,
                     locationCount = items.count { it.hasLocation },
-                    noLocationCount = items.count { !it.hasLocation }
+                    noLocationCount = items.count { !it.hasLocation },
+                    locationGroupCount = items.filter { it.hasLocation }
+                        .map { it.bucketKey }
+                        .distinct()
+                        .size,
+                    representativePhotoUri = items.firstOrNull()?.uri
                 )
             }
             .sortedByDescending { it.dateKey }
@@ -84,24 +107,91 @@ fun DateListScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
+                    .padding(innerPadding),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(groups, key = { it.dateKey }) { group ->
-                    ListItem(
-                        headlineContent = { Text(group.dateKey) },
-                        supportingContent = {
-                            Text(
-                                stringResource(
-                                    R.string.date_group_stats,
-                                    group.totalCount,
-                                    group.locationCount,
-                                    group.noLocationCount
-                                )
-                            )
-                        },
-                        modifier = Modifier.clickable { onOpenDate(group.dateKey) }
+                    DateSummaryCard(
+                        group = group,
+                        onClick = { onOpenDate(group.dateKey) },
+                        onMapClick = { onNavigateToMap(group.dateKey) }
                     )
-                    HorizontalDivider()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DateSummaryCard(
+    group: DatePhotoGroup,
+    onClick: () -> Unit,
+    onMapClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            group.representativePhotoUri?.let { uri ->
+                AsyncImage(
+                    model = Uri.parse(uri),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = group.dateKey,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.photo_count, group.totalCount),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = stringResource(
+                        R.string.date_group_detailed_stats,
+                        group.locationCount,
+                        group.noLocationCount,
+                        group.locationGroupCount
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                if (group.locationCount > 0) {
+                    OutlinedButton(
+                        onClick = onMapClick,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.view_on_map))
+                    }
                 }
             }
         }
@@ -118,6 +208,7 @@ fun PhotoGridScreen(
 ) {
     val allPhotos by photos.collectAsState()
     val visiblePhotos = remember(allPhotos, filter) { allPhotos.filter(filter) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -149,7 +240,22 @@ fun PhotoGridScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)
-                            .padding(1.dp),
+                            .padding(1.dp)
+                            .clickable {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(Uri.parse(photo.uri), "image/*")
+                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.cannot_open_photo),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
                         contentScale = ContentScale.Crop
                     )
                 }

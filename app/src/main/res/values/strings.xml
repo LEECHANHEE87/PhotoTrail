@@ -20,7 +20,10 @@
     <string name="view_all">View all</string>
     <string name="location_photo_group">Location photo group</string>
     <string name="date_group_stats">Total %1$d · GPS %2$d · No GPS %3$d</string>
+    <string name="date_group_detailed_stats">GPS %1$d · No GPS %2$d · Locations %3$d</string>
     <string name="no_indexed_photos">No indexed photos. Run a photo scan first.</string>
     <string name="no_photos">No photos in this group.</string>
     <string name="back">Back</string>
+    <string name="cannot_open_photo">Cannot open photo</string>
+    <string name="open_photo_list">View photos</string>
 </resources>

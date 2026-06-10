@@ -20,7 +20,10 @@
     <string name="view_all">전체 보기</string>
     <string name="location_photo_group">위치 사진 그룹</string>
     <string name="date_group_stats">전체 %1$d · GPS 있음 %2$d · GPS 없음 %3$d</string>
+    <string name="date_group_detailed_stats">GPS 있음 %1$d · GPS 없음 %2$d · 위치 그룹 %3$d</string>
     <string name="no_indexed_photos">인덱싱된 사진이 없습니다. 먼저 사진을 스캔하세요.</string>
     <string name="no_photos">이 그룹에 사진이 없습니다.</string>
     <string name="back">뒤로</string>
+    <string name="cannot_open_photo">사진을 열 수 없습니다</string>
+    <string name="open_photo_list">사진 목록 보기</string>
 </resources>

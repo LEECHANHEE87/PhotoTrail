@@ -41,9 +41,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        composable("map") {
+                        composable("map?date={date}") { entry ->
+                            val dateFilter = entry.arguments?.getString("date")
                             MapScreen(
                                 viewModel = photoViewModel,
+                                dateFilter = dateFilter,
                                 onBackClick = { navController.popBackStack() },
                                 onOpenBucket = { bucketKey ->
                                     navController.navigate(
@@ -58,6 +60,9 @@ class MainActivity : ComponentActivity() {
                                 onBackClick = { navController.popBackStack() },
                                 onOpenDate = { dateKey ->
                                     navController.navigate("photos/date/$dateKey")
+                                },
+                                onNavigateToMap = { dateKey ->
+                                    navController.navigate("map?date=$dateKey")
                                 }
                             )
                         }
