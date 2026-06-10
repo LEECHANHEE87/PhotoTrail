@@ -17,6 +17,7 @@ import com.example.phototrail.ui.HomeScreen
 import com.example.phototrail.ui.MapScreen
 import com.example.phototrail.ui.PhotoGridScreen
 import com.example.phototrail.ui.PhotoViewModel
+import com.example.phototrail.ui.PhotoViewerScreen
 import com.example.phototrail.ui.theme.PhotoTrailTheme
 
 class MainActivity : ComponentActivity() {
@@ -70,7 +71,11 @@ class MainActivity : ComponentActivity() {
                             PhotoGridScreen(
                                 title = getString(R.string.view_no_location),
                                 photos = photoViewModel.photosWithoutLocation,
-                                onBackClick = { navController.popBackStack() }
+                                onBackClick = { navController.popBackStack() },
+                                onPhotoClick = { list, index ->
+                                    photoViewModel.setViewerPhotos(list)
+                                    navController.navigate("photo-viewer/$index")
+                                }
                             )
                         }
                         composable("photos/date/{dateKey}") { entry ->
@@ -79,7 +84,11 @@ class MainActivity : ComponentActivity() {
                                 title = dateKey,
                                 photos = photoViewModel.allPhotos,
                                 filter = { it.dateKey == dateKey },
-                                onBackClick = { navController.popBackStack() }
+                                onBackClick = { navController.popBackStack() },
+                                onPhotoClick = { list, index ->
+                                    photoViewModel.setViewerPhotos(list)
+                                    navController.navigate("photo-viewer/$index")
+                                }
                             )
                         }
                         composable("photos/bucket/{bucketKey}") { entry ->
@@ -90,6 +99,18 @@ class MainActivity : ComponentActivity() {
                                 title = getString(R.string.location_photo_group),
                                 photos = photoViewModel.allPhotos,
                                 filter = { it.bucketKey == bucketKey },
+                                onBackClick = { navController.popBackStack() },
+                                onPhotoClick = { list, index ->
+                                    photoViewModel.setViewerPhotos(list)
+                                    navController.navigate("photo-viewer/$index")
+                                }
+                            )
+                        }
+                        composable("photo-viewer/{index}") { entry ->
+                            val index = entry.arguments?.getString("index")?.toIntOrNull() ?: 0
+                            PhotoViewerScreen(
+                                viewModel = photoViewModel,
+                                initialIndex = index,
                                 onBackClick = { navController.popBackStack() }
                             )
                         }

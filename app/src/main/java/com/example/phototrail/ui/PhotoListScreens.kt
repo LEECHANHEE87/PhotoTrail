@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -204,6 +206,7 @@ fun PhotoGridScreen(
     title: String,
     photos: StateFlow<List<PhotoItemEntity>>,
     onBackClick: () -> Unit,
+    onPhotoClick: (List<PhotoItemEntity>, Int) -> Unit,
     filter: (PhotoItemEntity) -> Boolean = { true }
 ) {
     val allPhotos by photos.collectAsState()
@@ -233,7 +236,7 @@ fun PhotoGridScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(visiblePhotos, key = { it.id }) { photo ->
+                itemsIndexed(visiblePhotos, key = { _, photo -> photo.id }) { index, photo ->
                     AsyncImage(
                         model = Uri.parse(photo.uri),
                         contentDescription = photo.displayName,
@@ -242,19 +245,7 @@ fun PhotoGridScreen(
                             .aspectRatio(1f)
                             .padding(1.dp)
                             .clickable {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        setDataAndType(Uri.parse(photo.uri), "image/*")
-                                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.cannot_open_photo),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
+                                onPhotoClick(visiblePhotos, index)
                             },
                         contentScale = ContentScale.Crop
                     )

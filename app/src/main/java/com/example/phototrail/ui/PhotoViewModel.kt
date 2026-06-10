@@ -43,6 +43,13 @@ class PhotoViewModel(application: Application) : AndroidViewModel(application) {
             emptyList()
         )
 
+    private val _viewerPhotos = MutableStateFlow<List<PhotoItemEntity>>(emptyList())
+    val viewerPhotos: StateFlow<List<PhotoItemEntity>> = _viewerPhotos
+
+    fun setViewerPhotos(photos: List<PhotoItemEntity>) {
+        _viewerPhotos.value = photos
+    }
+
     private val _indexUiState = MutableStateFlow(IndexUiState())
     val indexUiState: StateFlow<IndexUiState> = _indexUiState
 

@@ -26,4 +26,9 @@
     <string name="back">뒤로</string>
     <string name="cannot_open_photo">사진을 열 수 없습니다</string>
     <string name="open_photo_list">사진 목록 보기</string>
+    <string name="open_in_external_gallery">갤러리 앱에서 열기</string>
+    <string name="criterion_current_location">현재 위치 주변</string>
+    <string name="criterion_recent_photo">최근 사진 촬영 위치 주변</string>
+    <string name="criterion_frequent_location">사진이 많은 위치 주변</string>
+    <string name="criterion_default_seoul">기본 위치 (서울)</string>
 </resources>

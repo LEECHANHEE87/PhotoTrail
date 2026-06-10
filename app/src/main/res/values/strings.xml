@@ -26,4 +26,9 @@
     <string name="back">Back</string>
     <string name="cannot_open_photo">Cannot open photo</string>
     <string name="open_photo_list">View photos</string>
+    <string name="open_in_external_gallery">Open in gallery</string>
+    <string name="criterion_current_location">Near your current location</string>
+    <string name="criterion_recent_photo">Near your most recent photo</string>
+    <string name="criterion_frequent_location">Near a frequent location</string>
+    <string name="criterion_default_seoul">Default (Seoul)</string>
 </resources>
