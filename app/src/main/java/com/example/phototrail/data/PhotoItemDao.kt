@@ -25,6 +25,18 @@ interface PhotoItemDao {
     @Query("SELECT * FROM photos WHERE bucketKey = :bucketKey ORDER BY takenAt DESC, id DESC")
     fun getPhotosByBucketKey(bucketKey: String): Flow<List<PhotoItemEntity>>
 
+    @Query("SELECT * FROM photos")
+    suspend fun getAllPhotosSync(): List<PhotoItemEntity>
+
+    @Query("SELECT mediaStoreId FROM photos")
+    suspend fun getAllMediaStoreIds(): List<Long>
+
+    @Query("SELECT * FROM photos WHERE mediaStoreId = :mediaStoreId LIMIT 1")
+    suspend fun getPhotoByMediaStoreId(mediaStoreId: Long): PhotoItemEntity?
+
+    @Query("DELETE FROM photos WHERE mediaStoreId IN (:ids)")
+    suspend fun deletePhotosByMediaStoreId(ids: List<Long>)
+
     @Query("DELETE FROM photos")
     suspend fun clearAll()
 }

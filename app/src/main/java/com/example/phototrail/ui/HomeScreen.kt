@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,7 +54,8 @@ fun HomeScreen(
     viewModel: PhotoViewModel,
     onNavigateToMap: () -> Unit,
     onNavigateToDates: () -> Unit,
-    onNavigateToNoLocation: () -> Unit
+    onNavigateToNoLocation: () -> Unit,
+    onNavigateToTrips: () -> Unit
 ) {
     val context = LocalContext.current
     val indexState by viewModel.indexUiState.collectAsState()
@@ -65,6 +67,13 @@ fun HomeScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) {
         permissionStatus = photoPermissionStatus(context, denied = true)
+    }
+
+    // 자동 동기화: 권한이 허용되어 있으면 앱 시작 시(또는 권한 획득 시) 자동으로 스캔 시작
+    LaunchedEffect(permissionStatus.hasPhotoAccess) {
+        if (permissionStatus.hasPhotoAccess) {
+            viewModel.indexPhotos(isAutoSync = true)
+        }
     }
 
     val currentStats = remember(photos) {
@@ -152,6 +161,22 @@ fun HomeScreen(
                         )
                     }
 
+                    indexState.stats?.let { stats ->
+                        Text(
+                            text = stringResource(
+                                R.string.sync_stats_summary,
+                                stats.newCount,
+                                stats.updatedCount,
+                                stats.deletedCount,
+                                stats.unchangedCount,
+                                stats.mediaStoreCount
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+
                     Text(
                         text = stringResource(
                             R.string.index_stats,
@@ -161,11 +186,16 @@ fun HomeScreen(
                             currentStats.dateGroupCount,
                             currentStats.locationGroupCount
                         ),
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
 
+            MenuCard(
+                text = stringResource(R.string.view_trips),
+                onClick = onNavigateToTrips
+            )
             MenuCard(
                 text = stringResource(R.string.view_on_map),
                 onClick = onNavigateToMap
