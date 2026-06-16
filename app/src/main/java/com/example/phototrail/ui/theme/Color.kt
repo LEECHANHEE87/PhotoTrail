@@ -2,10 +2,19 @@ package com.example.phototrail.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// PhotoTrail Palette
+val PhotoTrailPrimary = Color(0xFF4D726E) // Sage/Teal
+val PhotoTrailSecondary = Color(0xFF7BA7A3) // Blue-green
+val PhotoTrailAccent = Color(0xFFF08080) // Coral
+val PhotoTrailBackground = Color(0xFFFDFCF0) // Warm Ivory
+val PhotoTrailSurface = Color(0xFFFFFFFF)
+val PhotoTrailTextPrimary = Color(0xFF333333)
+val PhotoTrailTextSecondary = Color(0xFF757575)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// Dark Palette placeholders
+val PhotoTrailPrimaryDark = Color(0xFF8BAEAA)
+val PhotoTrailSecondaryDark = Color(0xFF5A8581)
+val PhotoTrailBackgroundDark = Color(0xFF1A1C1E)
+val PhotoTrailSurfaceDark = Color(0xFF2B2D30)
+val PhotoTrailTextPrimaryDark = Color(0xFFE2E2E6)
+val PhotoTrailTextSecondaryDark = Color(0xFFAAAAAA)

@@ -1,8 +1,9 @@
-package com.example.phototrail.data
+﻿package com.example.phototrail.data
 
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
+import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import androidx.room.withTransaction
 import java.text.SimpleDateFormat
@@ -169,7 +170,7 @@ class PhotoRepository(
     suspend fun generateTripAlbums() {
         val allPhotos = dao.getAllPhotosSync().sortedBy { it.takenAt }
         if (allPhotos.isEmpty()) {
-            tripDao.clearAll()
+            tripDao.deleteAllAutoTrips()
             return
         }
 
@@ -177,66 +178,70 @@ class PhotoRepository(
         val sortedDateKeys = photosByDate.keys.sorted()
         val allOverrides = overrideDao.getAllOverridesSync().groupBy { it.tripKey }
 
-        val dailyStats = sortedDateKeys.map { dateKey ->
+        val dailySummaries = sortedDateKeys.map { dateKey ->
             val photos = photosByDate[dateKey] ?: emptyList()
-            val locationPhotos = photos.filter { it.hasLocation }
-            val bucketKeys = photos.map { it.bucketKey }.distinct()
+            val locationPhotos = photos.filter { it.hasLocation }.sortedBy { it.takenAt }
+            val locationBucketKeys = locationPhotos.map { it.bucketKey }.distinct()
             
-            DailyStat(
+            val placeGroupCenters = photos.filter { it.hasLocation }
+                .groupBy { it.bucketKey }
+                .map { (_, group) ->
+                    group.map { it.latitude!! }.average() to group.map { it.longitude!! }.average()
+                }
+
+            DaySummary(
                 dateKey = dateKey,
                 totalCount = photos.size,
                 locationCount = locationPhotos.size,
                 noLocationCount = photos.size - locationPhotos.size,
-                placeGroupCount = bucketKeys.size,
+                placeGroupCount = locationBucketKeys.size,
+                centerLat = if (locationPhotos.isNotEmpty()) locationPhotos.map { it.latitude!! }.average() else null,
+                centerLng = if (locationPhotos.isNotEmpty()) locationPhotos.map { it.longitude!! }.average() else null,
+                firstLat = locationPhotos.firstOrNull()?.latitude,
+                firstLng = locationPhotos.firstOrNull()?.longitude,
+                lastLat = locationPhotos.lastOrNull()?.latitude,
+                lastLng = locationPhotos.lastOrNull()?.longitude,
+                startTime = photos.minOfOrNull { it.takenAt ?: Long.MAX_VALUE } ?: 0L,
+                endTime = photos.maxOfOrNull { it.takenAt ?: 0L } ?: 0L,
                 representativeUri = photos.maxByOrNull { it.takenAt ?: 0L }?.uri,
-                avgLat = if (locationPhotos.isNotEmpty()) locationPhotos.map { it.latitude!! }.average() else null,
-                avgLng = if (locationPhotos.isNotEmpty()) locationPhotos.map { it.longitude!! }.average() else null
+                placeGroupCenters = placeGroupCenters
             )
         }
 
-        val tripCandidates = dailyStats.filter { stat ->
-            stat.totalCount >= 10 || stat.placeGroupCount >= 2
-        }
-
-        val trips = mutableListOf<MutableList<DailyStat>>()
-        if (tripCandidates.isNotEmpty()) {
-            var currentTrip = mutableListOf(tripCandidates[0])
-            trips.add(currentTrip)
-
-            for (i in 1 until tripCandidates.size) {
-                val prev = tripCandidates[i - 1]
-                val curr = tripCandidates[i]
-                
-                if (isConsecutive(prev.dateKey, curr.dateKey)) {
-                    currentTrip.add(curr)
-                } else {
-                    currentTrip = mutableListOf(curr)
-                    trips.add(currentTrip)
-                }
-            }
-        }
+        val generator = TripAlbumGeneratorV2()
+        val trips = generator.groupDays(dailySummaries)
+        
+        Log.d("TripGrouping", "Daily summaries: ${dailySummaries.size}, Final trips: ${trips.size}")
 
         val existingTrips = tripDao.getAllTripAlbumsSync().associateBy { it.tripKey }
+        val autoExistingTrips = existingTrips.values.filter { !it.isManual }
 
         // 1. Generate Automatic Trips
         val finalTripEntities = trips.filter { it.isNotEmpty() }.map { tripDays ->
             val startDate = tripDays.first().dateKey
             val endDate = tripDays.last().dateKey
             val dateKeysList = tripDays.map { it.dateKey }
-            val dateKeys = dateKeysList.joinToString(",")
+            val dateKeysSet = dateKeysList.toSet()
+            val dateKeysString = dateKeysList.joinToString(",")
             
-            // TODO: tripKey가 구성 날짜나 범위에 따라 변하므로, 자동 재생성 시 tripKey가 달라지면 편집값이 유실될 수 있음. 
-            // 향후 더 안정적인 매칭 로직(예: 겹치는 날짜 비중 확인)으로 개선 필요.
-            val tripKey = "${startDate}_${endDate}_${dateKeys.hashCode()}"
-            val existing = existingTrips[tripKey]
+            // TODO: tripKey媛 援ъ꽦 ?좎쭨??踰붿쐞???곕씪 蹂?섎?濡? ?먮룞 ?ъ깮????tripKey媛 ?щ씪吏硫??몄쭛媛믪씠 ?좎떎?????덉쓬. 
+            // ?ν썑 ???덉젙?곸씤 留ㅼ묶 濡쒖쭅(?? 寃뱀튂???좎쭨 鍮꾩쨷 ?뺤씤)?쇰줈 媛쒖꽑 ?꾩슂.
+            val tripKey = "${startDate}_${endDate}_${dateKeysString.hashCode()}"
+            var existing = existingTrips[tripKey]
+            
+            if (existing == null) {
+                // Try to find a matching existing trip by overlap (70% rule)
+                existing = findMatchingExistingTrip(dateKeysSet, autoExistingTrips)
+            }
+            val persistedTripKey = existing?.tripKey ?: tripKey
 
             // Calculate photos considering overrides
-            val overrides = allOverrides[tripKey] ?: emptyList()
-            val basePhotos = allPhotos.filter { it.dateKey in dateKeysList }
+            val overrides = allOverrides[persistedTripKey] ?: emptyList()
+            val basePhotos = allPhotos.filter { it.dateKey in dateKeysSet }
             val finalPhotos = applyOverrides(basePhotos, overrides, allPhotos)
             
             val locPhotos = finalPhotos.filter { it.hasLocation }
-            val placeGroups = finalPhotos.map { it.bucketKey }.distinct().size
+            val placeGroups = locPhotos.map { it.bucketKey }.distinct().size
 
             val genTitle = if (startDate == endDate) {
                 "$startDate 하루 기록"
@@ -246,14 +251,14 @@ class PhotoRepository(
 
             TripAlbumEntity(
                 id = existing?.id ?: 0,
-                tripKey = tripKey,
+                tripKey = persistedTripKey,
                 generatedTitle = genTitle,
                 customTitle = existing?.customTitle,
                 isUserEdited = existing?.isUserEdited ?: false,
                 isHidden = existing?.isHidden ?: (existing?.mergedIntoTripKey != null),
                 startDateKey = startDate,
                 endDateKey = endDate,
-                dateKeys = dateKeys,
+                dateKeys = dateKeysString,
                 photoCount = finalPhotos.size,
                 locationPhotoCount = locPhotos.size,
                 noLocationPhotoCount = finalPhotos.size - locPhotos.size,
@@ -280,7 +285,7 @@ class PhotoRepository(
             val finalPhotos = applyOverrides(basePhotos, overrides, allPhotos)
             
             val locPhotos = finalPhotos.filter { it.hasLocation }
-            val placeGroups = finalPhotos.map { it.bucketKey }.distinct().size
+            val placeGroups = locPhotos.map { it.bucketKey }.distinct().size
 
             existing.copy(
                 photoCount = finalPhotos.size,
@@ -295,9 +300,29 @@ class PhotoRepository(
         }
 
         database.withTransaction {
-            tripDao.clearAll()
+            if (finalTripEntities.isEmpty()) {
+                tripDao.deleteAllAutoTrips()
+            } else {
+                tripDao.deleteAutoTripsExcept(finalTripEntities.map { it.tripKey })
+            }
             tripDao.insertAll(finalTripEntities + manualTrips)
         }
+    }
+
+    private fun findMatchingExistingTrip(
+        newDateKeys: Set<String>,
+        existingTrips: Collection<TripAlbumEntity>
+    ): TripAlbumEntity? {
+        val matches = existingTrips.filter { existing ->
+            val existingDateKeys = existing.dateKeys.split(",").toSet()
+            val intersection = newDateKeys.intersect(existingDateKeys)
+            if (intersection.isEmpty()) return@filter false
+            
+            val maxCount = maxOf(newDateKeys.size, existingDateKeys.size)
+            val overlapRatio = intersection.size.toDouble() / maxCount
+            overlapRatio >= 0.7
+        }
+        return if (matches.size == 1) matches[0] else null
     }
 
     private fun applyOverrides(
@@ -354,7 +379,7 @@ class PhotoRepository(
         generateTripAlbums()
     }
 
-    // TODO: 병합 취소 기능 구현 (mergedIntoTripKey를 제거하고 소스 트립들의 isHidden을 해제)
+    // TODO: 蹂묓빀 痍⑥냼 湲곕뒫 援ы쁽 (mergedIntoTripKey瑜??쒓굅?섍퀬 ?뚯뒪 ?몃┰?ㅼ쓽 isHidden???댁젣)
 
     suspend fun splitTrip(id: Long, dateKeysToSplit: List<String>) {
         val originalTrip = tripDao.getTripAlbumById(id) ?: return
@@ -387,8 +412,8 @@ class PhotoRepository(
             )
         }
 
-        val trip1 = createTrip(dateKeysToSplit, "분리된 기록")
-        val trip2 = createTrip(remainingDateKeys, "분리된 기록")
+        val trip1 = createTrip(dateKeysToSplit, "遺꾨━??湲곕줉")
+        val trip2 = createTrip(remainingDateKeys, "遺꾨━??湲곕줉")
 
         database.withTransaction {
             tripDao.insertAll(listOf(trip1, trip2))
@@ -397,7 +422,7 @@ class PhotoRepository(
         generateTripAlbums()
     }
 
-    // TODO: 날짜 단위가 아닌 개별 사진 단위의 세밀한 분리 기능 구현 필요
+    // TODO: ?좎쭨 ?⑥쐞媛 ?꾨땶 媛쒕퀎 ?ъ쭊 ?⑥쐞???몃???遺꾨━ 湲곕뒫 援ы쁽 ?꾩슂
 
     suspend fun addPhotoToTrip(tripKey: String, photoMediaStoreId: Long) {
         overrideDao.insert(TripPhotoOverrideEntity(
@@ -438,15 +463,6 @@ class PhotoRepository(
         tripDao.updateHidden(id, false, System.currentTimeMillis())
     }
 
-    private fun isConsecutive(date1: String, date2: String): Boolean {
-        return runCatching {
-            val d1 = DATE_KEY_FORMAT.get()!!.parse(date1)!!
-            val d2 = DATE_KEY_FORMAT.get()!!.parse(date2)!!
-            val diff = d2.time - d1.time
-            diff <= 24 * 60 * 60 * 1000L * 1.5
-        }.getOrDefault(false)
-    }
-
     private fun parseExifDate(value: String?): Long? {
         if (value.isNullOrBlank()) return null
         return runCatching { EXIF_DATE_FORMAT.get()!!.parse(value)?.time }.getOrNull()
@@ -458,17 +474,6 @@ class PhotoRepository(
     private data class ExifData(
         val takenAt: Long?,
         val location: Pair<Double, Double>?
-    )
-
-    private data class DailyStat(
-        val dateKey: String,
-        val totalCount: Int,
-        val locationCount: Int,
-        val noLocationCount: Int,
-        val placeGroupCount: Int,
-        val representativeUri: String?,
-        val avgLat: Double?,
-        val avgLng: Double?
     )
 
     companion object {

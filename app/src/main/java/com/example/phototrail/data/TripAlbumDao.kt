@@ -26,6 +26,12 @@ interface TripAlbumDao {
     @Query("DELETE FROM trip_albums")
     suspend fun clearAll()
 
+    @Query("DELETE FROM trip_albums WHERE isManual = 0 AND tripKey NOT IN (:tripKeys)")
+    suspend fun deleteAutoTripsExcept(tripKeys: List<String>)
+
+    @Query("DELETE FROM trip_albums WHERE isManual = 0")
+    suspend fun deleteAllAutoTrips()
+
     @Query("SELECT * FROM trip_albums WHERE id = :id")
     suspend fun getTripAlbumById(id: Long): TripAlbumEntity?
 

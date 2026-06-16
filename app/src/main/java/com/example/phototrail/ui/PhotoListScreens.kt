@@ -4,64 +4,32 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.phototrail.R
-import com.example.phototrail.data.OverrideType
 import com.example.phototrail.data.PhotoItemEntity
+import com.example.phototrail.ui.theme.PhotoTrailSpacing
 import kotlinx.coroutines.flow.StateFlow
 
 private data class DatePhotoGroup(
@@ -101,33 +69,54 @@ fun DateListScreen(
             .sortedByDescending { it.dateKey }
     }
 
+    val isWideScreen = LocalConfiguration.current.screenWidthDp > 600
+
     Scaffold(
         topBar = {
             PhotoTopBar(
                 title = stringResource(R.string.view_by_date),
                 onBackClick = onBackClick
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         if (groups.isEmpty()) {
-            EmptyPhotoMessage(
+            PhotoTrailEmptyState(
                 modifier = Modifier.padding(innerPadding),
-                text = stringResource(R.string.no_indexed_photos)
+                icon = Icons.Default.DateRange,
+                title = stringResource(R.string.no_indexed_photos),
+                description = stringResource(R.string.scan_photos_empty_description)
             )
         } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(groups, key = { it.dateKey }) { group ->
-                    DateSummaryCard(
-                        group = group,
-                        onClick = { onOpenDate(group.dateKey) },
-                        onMapClick = { onNavigateToMap(group.dateKey) }
-                    )
+            if (isWideScreen) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(groups, key = { it.dateKey }) { group ->
+                        DateSummaryCard(
+                            group = group,
+                            onClick = { onOpenDate(group.dateKey) },
+                            onMapClick = { onNavigateToMap(group.dateKey) }
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(groups, key = { it.dateKey }) { group ->
+                        DateSummaryCard(
+                            group = group,
+                            onClick = { onOpenDate(group.dateKey) },
+                            onMapClick = { onNavigateToMap(group.dateKey) }
+                        )
+                    }
                 }
             }
         }
@@ -140,134 +129,77 @@ private fun DateSummaryCard(
     onClick: () -> Unit,
     onMapClick: () -> Unit
 ) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
+    PhotoTrailCard(onClick = onClick) {
         Column {
-            Box {
-                group.representativePhotoUri?.let { uri ->
+            Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
+                if (group.representativePhotoUri != null) {
                     AsyncImage(
-                        model = Uri.parse(uri),
+                        model = Uri.parse(group.representativePhotoUri),
                         contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
-                } ?: Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Place,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.outline
-                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Place, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.outline)
+                    }
                 }
                 
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.padding(12.dp)
-                ) {
-                    Text(
-                        text = group.dateKey,
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.5f))
+                            )
+                        )
+                )
+                
+                Text(
+                    text = group.dateKey,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
+                )
             }
             
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.photo_count, group.totalCount),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    StatItem(
-                        icon = Icons.Default.LocationOn,
-                        label = "GPS ${group.locationCount}",
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    StatItem(
-                        icon = Icons.Default.Place,
-                        label = "${group.locationGroupCount} Groups",
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        onClick = onClick,
-                        modifier = Modifier.weight(1f),
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Text(stringResource(R.string.view_all))
-                    }
-                    
+                    PhotoTrailStatChip(
+                        icon = Icons.AutoMirrored.Filled.List,
+                        label = stringResource(R.string.photo_count, group.totalCount),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                     if (group.locationCount > 0) {
-                        OutlinedButton(
-                            onClick = onMapClick,
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.medium
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.view_on_map))
-                        }
+                        PhotoTrailStatChip(
+                            icon = Icons.Default.LocationOn,
+                            label = stringResource(R.string.place_count, group.locationGroupCount)
+                        )
+                    }
+                }
+                
+                if (group.locationCount > 0) {
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = onMapClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.view_on_map))
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun StatItem(icon: ImageVector, label: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = color
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
@@ -318,9 +250,11 @@ fun PhotoGridScreen(
         }
     ) { innerPadding ->
         if (visiblePhotos.isEmpty()) {
-            EmptyPhotoMessage(
+            PhotoTrailEmptyState(
                 modifier = Modifier.padding(innerPadding),
-                text = stringResource(R.string.no_photos)
+                icon = Icons.Default.Info,
+                title = stringResource(R.string.no_photos),
+                description = stringResource(R.string.no_group_photos_description)
             )
         } else {
             LazyVerticalGrid(
@@ -439,18 +373,4 @@ private fun PhotoTopBar(title: String, onBackClick: () -> Unit) {
             }
         }
     )
-}
-
-@Composable
-private fun EmptyPhotoMessage(modifier: Modifier, text: String) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(24.dp)
-        )
-    }
 }

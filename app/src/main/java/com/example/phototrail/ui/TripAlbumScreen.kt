@@ -2,60 +2,26 @@ package com.example.phototrail.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.phototrail.R
 import com.example.phototrail.data.TripAlbumEntity
+import com.example.phototrail.ui.theme.PhotoTrailSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +50,8 @@ fun TripAlbumScreen(
     
     var isMergeMode by remember { mutableStateOf(false) }
     var selectedTripIds by remember { mutableStateOf(setOf<Long>()) }
+
+    val isWideScreen = LocalConfiguration.current.screenWidthDp > 600
 
     Scaffold(
         topBar = {
@@ -134,49 +103,86 @@ fun TripAlbumScreen(
                     }
                 }
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         if (tripAlbums.isEmpty() && !isGenerating) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                Text(text = stringResource(R.string.no_indexed_photos), style = MaterialTheme.typography.bodyLarge)
-            }
+            PhotoTrailEmptyState(
+                modifier = Modifier.padding(innerPadding),
+                icon = Icons.Default.Star,
+                title = stringResource(R.string.no_trip_albums_title),
+                description = stringResource(R.string.no_trip_albums_description)
+            )
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = innerPadding.calculateTopPadding() + 8.dp,
-                    bottom = 16.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(tripAlbums) { album ->
-                    TripAlbumCard(
-                        album = album,
-                        onClick = {
-                            if (isMergeMode) {
-                                selectedTripIds = if (album.id in selectedTripIds) {
-                                    selectedTripIds - album.id
+            if (isWideScreen) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(tripAlbums) { album ->
+                        TripAlbumCard(
+                            album = album,
+                            onClick = {
+                                if (isMergeMode) {
+                                    selectedTripIds = if (album.id in selectedTripIds) {
+                                        selectedTripIds - album.id
+                                    } else {
+                                        selectedTripIds + album.id
+                                    }
                                 } else {
-                                    selectedTripIds + album.id
+                                    onOpenTrip(album)
                                 }
-                            } else {
-                                onOpenTrip(album)
-                            }
-                        },
-                        onMapClick = { onOpenTripOnMap(album) },
-                        onRename = { tripToRename = album },
-                        onHide = { tripToHide = album },
-                        onRestore = { viewModel.unhideTripAlbum(album.id) },
-                        onSplit = { tripToSplit = album },
-                        onEnterMergeMode = {
-                            isMergeMode = true
-                            selectedTripIds = setOf(album.id)
-                        },
-                        isSelected = album.id in selectedTripIds,
-                        isSelectionEnabled = isMergeMode
-                    )
+                            },
+                            onMapClick = { onOpenTripOnMap(album) },
+                            onRename = { tripToRename = album },
+                            onHide = { tripToHide = album },
+                            onRestore = { viewModel.unhideTripAlbum(album.id) },
+                            onSplit = { tripToSplit = album },
+                            onEnterMergeMode = {
+                                isMergeMode = true
+                                selectedTripIds = setOf(album.id)
+                            },
+                            isSelected = album.id in selectedTripIds,
+                            isSelectionEnabled = isMergeMode
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(tripAlbums) { album ->
+                        TripAlbumCard(
+                            album = album,
+                            onClick = {
+                                if (isMergeMode) {
+                                    selectedTripIds = if (album.id in selectedTripIds) {
+                                        selectedTripIds - album.id
+                                    } else {
+                                        selectedTripIds + album.id
+                                    }
+                                } else {
+                                    onOpenTrip(album)
+                                }
+                            },
+                            onMapClick = { onOpenTripOnMap(album) },
+                            onRename = { tripToRename = album },
+                            onHide = { tripToHide = album },
+                            onRestore = { viewModel.unhideTripAlbum(album.id) },
+                            onSplit = { tripToSplit = album },
+                            onEnterMergeMode = {
+                                isMergeMode = true
+                                selectedTripIds = setOf(album.id)
+                            },
+                            isSelected = album.id in selectedTripIds,
+                            isSelectionEnabled = isMergeMode
+                        )
+                    }
                 }
             }
         }
@@ -233,33 +239,35 @@ fun TripAlbumCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(
+    PhotoTrailCard(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        border = if (isSelected) CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-            width = 3.dp
-        ) else null
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column {
-            Box {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                 AsyncImage(
                     model = album.finalRepresentativeUri,
                     contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)),
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
                 
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
+                            )
+                        )
+                )
+
                 if (isSelectionEnabled) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .size(24.dp)
+                            .padding(12.dp)
+                            .size(28.dp)
                             .background(
                                 if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.3f),
                                 CircleShape
@@ -267,138 +275,115 @@ fun TripAlbumCard(
                         contentAlignment = Alignment.Center
                     ) {
                         if (isSelected) {
-                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
+                } else {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                    ) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = Color.White)
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.rename_trip)) },
+                                onClick = { showMenu = false; onRename() },
+                                leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.split_trip)) },
+                                onClick = { showMenu = false; onSplit() },
+                                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.merge_trips)) },
+                                onClick = { showMenu = false; onEnterMergeMode() },
+                                leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) }
+                            )
+                            if (album.isHidden) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.unhide_trip)) },
+                                    onClick = { showMenu = false; onRestore() },
+                                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.hide_trip)) },
+                                    onClick = { showMenu = false; onHide() },
+                                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = album.displayTitle,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    
+                    val dateRange = if (album.startDateKey == album.endDateKey) {
+                        album.startDateKey
+                    } else {
+                        "${album.startDateKey} ~ ${album.endDateKey}"
+                    }
+                    Text(
+                        text = dateRange,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
                 }
             }
             
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = album.displayTitle,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        
-                        val dateRange = if (album.startDateKey == album.endDateKey) {
-                            album.startDateKey
-                        } else {
-                            "${album.startDateKey} ~ ${album.endDateKey}"
-                        }
-                        Text(
-                            text = dateRange,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    if (!isSelectionEnabled) {
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(
-                                    Icons.Default.MoreVert,
-                                    contentDescription = "More"
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.rename_trip)) },
-                                    onClick = {
-                                        showMenu = false
-                                        onRename()
-                                    },
-                                    leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.split_trip)) },
-                                    onClick = {
-                                        showMenu = false
-                                        onSplit()
-                                    },
-                                    leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.merge_trips)) },
-                                    onClick = {
-                                        showMenu = false
-                                        onEnterMergeMode()
-                                    },
-                                    leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) }
-                                )
-                                if (album.isHidden) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.unhide_trip)) },
-                                        onClick = {
-                                            showMenu = false
-                                            onRestore()
-                                        },
-                                        leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
-                                    )
-                                } else {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.hide_trip)) },
-                                        onClick = {
-                                            showMenu = false
-                                            onHide()
-                                        },
-                                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                Row(
-                    modifier = Modifier.padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text(
-                            text = stringResource(R.string.trip_stats, album.photoCount, album.placeGroupCount),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
-                    }
-                }
-
-                if (album.noLocationPhotoCount > 0) {
-                    Text(
-                        text = stringResource(R.string.trip_no_location_suffix, album.noLocationPhotoCount),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
+                    PhotoTrailStatChip(
+                        icon = Icons.AutoMirrored.Filled.List,
+                        label = stringResource(R.string.photo_count, album.photoCount),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    PhotoTrailStatChip(
+                        icon = Icons.Default.LocationOn,
+                        label = stringResource(R.string.place_count, album.placeGroupCount)
                     )
                 }
-                
+
                 if (!isSelectionEnabled) {
+                    Spacer(modifier = Modifier.height(16.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        PhotoTrailPrimaryButton(
+                            text = stringResource(R.string.open_photo_list),
                             onClick = onClick,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(R.string.open_photo_list))
-                        }
-                        IconButton(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Search
+                        )
+                        OutlinedIconButton(
                             onClick = onMapClick,
-                            modifier = Modifier
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                         ) {
-                            Icon(Icons.Default.LocationOn, contentDescription = stringResource(R.string.view_on_map))
+                            Icon(Icons.Default.LocationOn, contentDescription = stringResource(R.string.view_on_map), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
