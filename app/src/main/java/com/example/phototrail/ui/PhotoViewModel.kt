@@ -9,9 +9,14 @@ import com.example.phototrail.data.PhotoRepository
 import com.example.phototrail.data.TripAlbumEntity
 import com.example.phototrail.data.TripPhotoOverrideEntity
 import kotlinx.coroutines.Dispatchers
+import com.example.phototrail.data.OverrideType
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,6 +29,31 @@ data class IndexUiState(
     val errorMessage: String? = null
 )
 
+enum class SearchContentType { ALL, TRIP, DAILY, PHOTO }
+enum class SearchLocationFilter { ALL, WITH_LOCATION, WITHOUT_LOCATION }
+enum class SearchDateFilter { ALL, LAST_7_DAYS, LAST_30_DAYS, THIS_YEAR, CUSTOM }
+
+data class SearchState(
+    val query: String = "",
+    val contentType: SearchContentType = SearchContentType.ALL,
+    val locationFilter: SearchLocationFilter = SearchLocationFilter.ALL,
+    val dateFilter: SearchDateFilter = SearchDateFilter.ALL,
+    val startDate: String? = null, // yyyy-MM-dd
+    val endDate: String? = null,   // yyyy-MM-dd
+    val minPhotoCount: Int = 0,
+    val showHiddenTrips: Boolean = false
+)
+
+data class DatePhotoGroup(
+    val dateKey: String,
+    val totalCount: Int,
+    val locationCount: Int,
+    val noLocationCount: Int,
+    val locationGroupCount: Int,
+    val representativePhotoUri: String?
+)
+
+@OptIn(FlowPreview::class)
 class PhotoViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = PhotoRepository(application)
 
@@ -184,6 +214,150 @@ class PhotoViewModel(application: Application) : AndroidViewModel(application) {
                 repository.setRepresentativePhoto(id, photoUri)
             }
         }
+    }
+
+    // --- Search Logic ---
+
+    private val _searchState = MutableStateFlow(SearchState())
+    val searchState: StateFlow<SearchState> = _searchState
+
+    fun updateSearchQuery(query: String) {
+        _searchState.value = _searchState.value.copy(query = query)
+    }
+
+    fun updateSearchContentType(type: SearchContentType) {
+        _searchState.value = _searchState.value.copy(contentType = type)
+    }
+
+    fun updateLocationFilter(filter: SearchLocationFilter) {
+        _searchState.value = _searchState.value.copy(locationFilter = filter)
+    }
+
+    fun updateDateFilter(filter: SearchDateFilter, start: String? = null, end: String? = null) {
+        _searchState.value = _searchState.value.copy(
+            dateFilter = filter,
+            startDate = start,
+            endDate = end
+        )
+    }
+
+    fun resetFilters() {
+        _searchState.value = SearchState(query = _searchState.value.query)
+    }
+
+    private val debouncedQuery = _searchState
+        .map { it.query }
+        .debounce(300)
+
+    val searchTripResults: StateFlow<List<TripAlbumEntity>> = combine(
+        debouncedQuery,
+        _searchState,
+        tripAlbums,
+        hiddenTripAlbums
+    ) { query, state, albums, hiddenAlbums ->
+        val source = if (state.showHiddenTrips) albums + hiddenAlbums else albums
+        source.filter { trip ->
+            val matchesQuery = query.isBlank() || 
+                trip.displayTitle.contains(query, ignoreCase = true) ||
+                trip.dateKeys.contains(query, ignoreCase = true)
+            
+            val matchesDate = matchesDateFilter(trip.startDateKey, trip.endDateKey, state)
+            val matchesLocation = when (state.locationFilter) {
+                SearchLocationFilter.ALL -> true
+                SearchLocationFilter.WITH_LOCATION -> trip.locationPhotoCount > 0
+                SearchLocationFilter.WITHOUT_LOCATION -> trip.noLocationPhotoCount > 0
+            }
+            val matchesCount = trip.photoCount >= state.minPhotoCount
+
+            matchesQuery && matchesDate && matchesLocation && matchesCount
+        }.sortedByDescending { it.startDateKey }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val searchDayResults: StateFlow<List<DatePhotoGroup>> = combine(
+        debouncedQuery,
+        _searchState,
+        allPhotos
+    ) { query, state, photos ->
+        photos.groupBy { it.dateKey }
+            .map { (dateKey, items) ->
+                val representativePhoto = items.find { it.hasLocation } ?: items.firstOrNull()
+                DatePhotoGroup(
+                    dateKey = dateKey,
+                    totalCount = items.size,
+                    locationCount = items.count { it.hasLocation },
+                    noLocationCount = items.count { !it.hasLocation },
+                    locationGroupCount = items.filter { it.hasLocation }
+                        .map { it.bucketKey }
+                        .distinct()
+                        .size,
+                    representativePhotoUri = representativePhoto?.uri
+                )
+            }
+            .filter { group ->
+                val matchesQuery = query.isBlank() || group.dateKey.contains(query, ignoreCase = true)
+                val matchesDate = matchesDateFilter(group.dateKey, group.dateKey, state)
+                val matchesLocation = when (state.locationFilter) {
+                    SearchLocationFilter.ALL -> true
+                    SearchLocationFilter.WITH_LOCATION -> group.locationCount > 0
+                    SearchLocationFilter.WITHOUT_LOCATION -> group.noLocationCount > 0
+                }
+                val matchesCount = group.totalCount >= state.minPhotoCount
+
+                matchesQuery && matchesDate && matchesLocation && matchesCount
+            }
+            .sortedByDescending { it.dateKey }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val searchPhotoResults: StateFlow<List<PhotoItemEntity>> = combine(
+        debouncedQuery,
+        _searchState,
+        allPhotos
+    ) { query, state, photos ->
+        photos.filter { photo ->
+            val matchesQuery = query.isBlank() || 
+                (photo.displayName?.contains(query, ignoreCase = true) ?: false) ||
+                photo.bucketKey.contains(query, ignoreCase = true) ||
+                photo.dateKey.contains(query, ignoreCase = true)
+            
+            val matchesDate = matchesDateFilter(photo.dateKey, photo.dateKey, state)
+            val matchesLocation = when (state.locationFilter) {
+                SearchLocationFilter.ALL -> true
+                SearchLocationFilter.WITH_LOCATION -> photo.hasLocation
+                SearchLocationFilter.WITHOUT_LOCATION -> !photo.hasLocation
+            }
+
+            matchesQuery && matchesDate && matchesLocation
+        }.sortedByDescending { it.takenAt ?: 0L }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private fun matchesDateFilter(startKey: String, endKey: String, state: SearchState): Boolean {
+        return when (state.dateFilter) {
+            SearchDateFilter.ALL -> true
+            SearchDateFilter.LAST_7_DAYS -> {
+                val limit = getNDaysAgoKey(7)
+                endKey >= limit
+            }
+            SearchDateFilter.LAST_30_DAYS -> {
+                val limit = getNDaysAgoKey(30)
+                endKey >= limit
+            }
+            SearchDateFilter.THIS_YEAR -> {
+                val yearPrefix = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR).toString()
+                startKey.startsWith(yearPrefix) || endKey.startsWith(yearPrefix)
+            }
+            SearchDateFilter.CUSTOM -> {
+                val start = state.startDate ?: "0000-00-00"
+                val end = state.endDate ?: "9999-99-99"
+                !(endKey < start || startKey > end)
+            }
+        }
+    }
+
+    private fun getNDaysAgoKey(days: Int): String {
+        val cal = java.util.Calendar.getInstance()
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -days)
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        return sdf.format(cal.time)
     }
 
     fun getTripPhotos(trip: TripAlbumEntity): List<PhotoItemEntity> {

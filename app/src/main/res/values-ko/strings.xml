@@ -95,4 +95,20 @@
     <string name="representative_set">대표 사진을 변경했습니다</string>
     <string name="select_photos_to_add">앨범에 추가할 사진을 선택하세요</string>
     <string name="add">추가</string>
+    <string name="search_hint">사진과 여행 검색</string>
+    <string name="search_results">검색 결과</string>
+    <string name="no_search_results">검색 결과가 없습니다</string>
+    <string name="no_search_results_description">검색어나 필터를 변경해 보세요.</string>
+    <string name="filter_all">전체</string>
+    <string name="filter_trips">Trip</string>
+    <string name="filter_daily">하루 기록</string>
+    <string name="filter_photos">사진</string>
+    <string name="filter_with_location">위치 있는 사진</string>
+    <string name="filter_without_location">위치 없는 사진</string>
+    <string name="filter_date_all">전체 기간</string>
+    <string name="filter_last_7_days">최근 7일</string>
+    <string name="filter_last_30_days">최근 30일</string>
+    <string name="filter_this_year">올해</string>
+    <string name="clear_search">검색어 지우기</string>
+    <string name="reset_filters">필터 초기화</string>
 </resources>

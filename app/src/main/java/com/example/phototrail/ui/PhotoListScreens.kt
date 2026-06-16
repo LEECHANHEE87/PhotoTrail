@@ -32,15 +32,6 @@ import com.example.phototrail.data.PhotoItemEntity
 import com.example.phototrail.ui.theme.PhotoTrailSpacing
 import kotlinx.coroutines.flow.StateFlow
 
-private data class DatePhotoGroup(
-    val dateKey: String,
-    val totalCount: Int,
-    val locationCount: Int,
-    val noLocationCount: Int,
-    val locationGroupCount: Int,
-    val representativePhotoUri: String?
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateListScreen(

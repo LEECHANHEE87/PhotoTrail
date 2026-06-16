@@ -95,4 +95,20 @@
     <string name="representative_set">Representative photo updated</string>
     <string name="select_photos_to_add">Select photos to add to trip</string>
     <string name="add">Add</string>
+    <string name="search_hint">Search photos and trips</string>
+    <string name="search_results">Search results</string>
+    <string name="no_search_results">No search results found</string>
+    <string name="no_search_results_description">Try adjusting your query or filters.</string>
+    <string name="filter_all">All</string>
+    <string name="filter_trips">Trips</string>
+    <string name="filter_daily">Daily Records</string>
+    <string name="filter_photos">Photos</string>
+    <string name="filter_with_location">With Location</string>
+    <string name="filter_without_location">Without Location</string>
+    <string name="filter_date_all">All Time</string>
+    <string name="filter_last_7_days">Last 7 Days</string>
+    <string name="filter_last_30_days">Last 30 Days</string>
+    <string name="filter_this_year">This Year</string>
+    <string name="clear_search">Clear search</string>
+    <string name="reset_filters">Reset filters</string>
 </resources>

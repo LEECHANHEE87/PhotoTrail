@@ -24,6 +24,7 @@ import com.example.phototrail.ui.MapScreen
 import com.example.phototrail.ui.PhotoGridScreen
 import com.example.phototrail.ui.PhotoViewModel
 import com.example.phototrail.ui.PhotoViewerScreen
+import com.example.phototrail.ui.SearchScreen
 import com.example.phototrail.ui.TripAlbumScreen
 import com.example.phototrail.ui.theme.PhotoTrailTheme
 
@@ -55,7 +56,27 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToNoLocation = {
                                     navController.navigate("photos/no-location")
                                 },
-                                onNavigateToTrips = { navController.navigate("trips") }
+                                onNavigateToTrips = { navController.navigate("trips") },
+                                onNavigateToSearch = { navController.navigate("search") }
+                            )
+                        }
+                        composable("search") {
+                            SearchScreen(
+                                viewModel = photoViewModel,
+                                onBackClick = { navController.popBackStack() },
+                                onNavigateToTrip = { album ->
+                                    navController.navigate("photos/trip/${album.tripKey}?dates=${album.dateKeys}")
+                                },
+                                onNavigateToDate = { dateKey ->
+                                    navController.navigate("photos/date/$dateKey")
+                                },
+                                onNavigateToPhoto = { list, index ->
+                                    photoViewModel.setViewerPhotos(list)
+                                    navController.navigate("photo-viewer/$index")
+                                },
+                                onNavigateToMap = { dateKey ->
+                                    navController.navigate("map?date=$dateKey")
+                                }
                             )
                         }
                         composable("trips") {

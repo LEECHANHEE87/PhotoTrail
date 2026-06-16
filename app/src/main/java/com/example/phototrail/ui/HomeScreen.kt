@@ -47,7 +47,8 @@ fun HomeScreen(
     onNavigateToMap: () -> Unit,
     onNavigateToDates: () -> Unit,
     onNavigateToNoLocation: () -> Unit,
-    onNavigateToTrips: () -> Unit
+    onNavigateToTrips: () -> Unit,
+    onNavigateToSearch: () -> Unit
 ) {
     val context = LocalContext.current
     val indexState by viewModel.indexUiState.collectAsState()
@@ -90,7 +91,7 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             // 1. Brand Area
-            BrandHeader()
+            BrandHeader(onSearchClick = onNavigateToSearch)
 
             Column(
                 modifier = Modifier
@@ -208,38 +209,51 @@ fun HomeScreen(
 }
 
 @Composable
-private fun BrandHeader() {
-    Column(
+private fun BrandHeader(onSearchClick: () -> Unit) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 48.dp, bottom = 32.dp)
-            .padding(horizontal = PhotoTrailSpacing.ScreenHorizontal),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(top = 16.dp, bottom = 32.dp)
+            .padding(horizontal = PhotoTrailSpacing.ScreenHorizontal)
     ) {
-        Icon(
-            imageVector = Icons.Default.Place,
-            contentDescription = null,
+        IconButton(
+            onClick = onSearchClick,
+            modifier = Modifier.align(Alignment.TopEnd)
+        ) {
+            Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search_hint))
+        }
+        
+        Column(
             modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
-                .padding(8.dp),
-            tint = MaterialTheme.colorScheme.onPrimary
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = stringResource(R.string.app_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
-        )
+                .fillMaxWidth()
+                .padding(top = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.Place,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(8.dp),
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = stringResource(R.string.app_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
     }
 }
 
