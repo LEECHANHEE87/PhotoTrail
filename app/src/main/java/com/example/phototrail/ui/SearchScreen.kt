@@ -3,9 +3,11 @@ package com.example.phototrail.ui
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -27,7 +29,7 @@ import com.example.phototrail.R
 import com.example.phototrail.data.PhotoItemEntity
 import com.example.phototrail.data.TripAlbumEntity
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: PhotoViewModel,
@@ -161,15 +163,15 @@ fun SearchScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FilterRow(viewModel: PhotoViewModel, searchState: SearchState) {
-    FlowRow(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
         // Content Type Filters
         FilterChip(
@@ -193,6 +195,8 @@ private fun FilterRow(viewModel: PhotoViewModel, searchState: SearchState) {
             label = { Text(stringResource(R.string.filter_photos)) }
         )
 
+        VerticalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
         // Location Filters
         FilterChip(
             selected = searchState.locationFilter == SearchLocationFilter.WITH_LOCATION,
@@ -212,6 +216,8 @@ private fun FilterRow(viewModel: PhotoViewModel, searchState: SearchState) {
             label = { Text(stringResource(R.string.filter_without_location)) },
             leadingIcon = { if (searchState.locationFilter == SearchLocationFilter.WITHOUT_LOCATION) Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
         )
+
+        VerticalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
         // Date Filters
         FilterChip(
