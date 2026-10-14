@@ -6,15 +6,16 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,10 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,6 +47,9 @@ private enum class PhotoPermissionStatus {
 @Composable
 fun HomeScreen(
     viewModel: PhotoViewModel,
+    onNavigateToCamera: () -> Unit,
+    onNavigateToMaking: () -> Unit,
+    onNavigateToVideos: () -> Unit,
     onNavigateToMap: () -> Unit,
     onNavigateToDates: () -> Unit,
     onNavigateToNoLocation: () -> Unit,
@@ -80,6 +86,7 @@ fun HomeScreen(
 
     val configuration = LocalConfiguration.current
     val isWideScreen = configuration.screenWidthDp > 600
+    var showLibraryInfo by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
@@ -91,14 +98,39 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             // 1. Brand Area
-            BrandHeader(onSearchClick = onNavigateToSearch)
+            BrandHeader(
+                indexState = indexState,
+                canSync = permissionStatus.hasPhotoAccess,
+                onSyncClick = { viewModel.indexPhotos() },
+                onLibraryInfoClick = { showLibraryInfo = true },
+                onSearchClick = onNavigateToSearch
+            )
 
             Column(
                 modifier = Modifier
                     .padding(horizontal = PhotoTrailSpacing.ScreenHorizontal)
                     .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(PhotoTrailSpacing.SectionSpacing)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                PhotoTrailPrimaryButton(
+                    text = stringResource(R.string.open_camera),
+                    onClick = onNavigateToCamera,
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Default.Add
+                )
+                PhotoTrailPrimaryButton(
+                    text = stringResource(R.string.video_library),
+                    onClick = onNavigateToVideos,
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Default.Star
+                )
+                PhotoTrailPrimaryButton(
+                    text = stringResource(R.string.making_title),
+                    onClick = onNavigateToMaking,
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Default.Add
+                )
+
                 // 2. Permission Card (if needed)
                 if (!permissionStatus.hasPhotoAccess) {
                     PermissionCard(
@@ -107,21 +139,13 @@ fun HomeScreen(
                     )
                 }
 
-                // 3. Stats Summary
-                StatsSummaryRow(
-                    stats = stats,
-                    indexState = indexState,
-                    canSync = permissionStatus.hasPhotoAccess,
-                    onSyncClick = { viewModel.indexPhotos() }
-                )
-
-                // 4. Recent Memory Card
+                // 3. Recent Memory Card
                 RecentMemorySection(
                     recentTrip = tripAlbums.firstOrNull(),
                     onOpenTrip = { onNavigateToTrips() }
                 )
 
-                // 5. Main Menus
+                // 4. Main Menus
                 PhotoTrailSectionTitle(title = stringResource(R.string.view_all))
                 
                 if (isWideScreen) {
@@ -130,7 +154,7 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f),
                             title = stringResource(R.string.view_trips),
                             subtitle = stringResource(R.string.album_count, stats.tripCount),
-                            icon = Icons.Default.Star,
+                            imageRes = R.drawable.menu_trips_painting,
                             color = MaterialTheme.colorScheme.primaryContainer,
                             onClick = onNavigateToTrips
                         )
@@ -138,7 +162,7 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f),
                             title = stringResource(R.string.view_on_map),
                             subtitle = stringResource(R.string.photo_map_subtitle),
-                            icon = Icons.Default.LocationOn,
+                            imageRes = R.drawable.menu_map_painting,
                             color = MaterialTheme.colorScheme.secondaryContainer,
                             onClick = onNavigateToMap
                         )
@@ -149,7 +173,7 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f),
                             title = stringResource(R.string.view_by_date),
                             subtitle = stringResource(R.string.daily_records_subtitle),
-                            icon = Icons.Default.DateRange,
+                            imageRes = R.drawable.menu_calendar_painting,
                             color = MaterialTheme.colorScheme.tertiaryContainer,
                             onClick = onNavigateToDates
                         )
@@ -157,189 +181,302 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f),
                             title = stringResource(R.string.view_no_location),
                             subtitle = stringResource(R.string.no_gps_photos_subtitle),
-                            icon = Icons.Default.Info,
+                            imageRes = R.drawable.menu_no_gps_painting,
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             onClick = onNavigateToNoLocation
                         )
                     }
                 } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        MenuCard(
-                            title = stringResource(R.string.view_trips),
-                            subtitle = stringResource(R.string.album_count, stats.tripCount),
-                            icon = Icons.Default.Star,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            onClick = onNavigateToTrips
-                        )
-                        MenuCard(
-                            title = stringResource(R.string.view_on_map),
-                            subtitle = stringResource(R.string.photo_map_subtitle),
-                            icon = Icons.Default.LocationOn,
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            onClick = onNavigateToMap
-                        )
-                        MenuCard(
-                            title = stringResource(R.string.view_by_date),
-                            subtitle = stringResource(R.string.daily_records_subtitle),
-                            icon = Icons.Default.DateRange,
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            onClick = onNavigateToDates
-                        )
-                        MenuCard(
-                            title = stringResource(R.string.view_no_location),
-                            subtitle = stringResource(R.string.no_gps_photos_subtitle),
-                            icon = Icons.Default.Info,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            onClick = onNavigateToNoLocation
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            MenuCard(
+                                modifier = Modifier.weight(1f),
+                                title = stringResource(R.string.view_trips),
+                                subtitle = stringResource(R.string.album_count, stats.tripCount),
+                                imageRes = R.drawable.menu_trips_painting,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                onClick = onNavigateToTrips
+                            )
+                            MenuCard(
+                                modifier = Modifier.weight(1f),
+                                title = stringResource(R.string.view_on_map),
+                                subtitle = stringResource(R.string.photo_map_subtitle),
+                                imageRes = R.drawable.menu_map_painting,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                onClick = onNavigateToMap
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            MenuCard(
+                                modifier = Modifier.weight(1f),
+                                title = stringResource(R.string.view_by_date),
+                                subtitle = stringResource(R.string.daily_records_subtitle),
+                                imageRes = R.drawable.menu_calendar_painting,
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                onClick = onNavigateToDates
+                            )
+                            MenuCard(
+                                modifier = Modifier.weight(1f),
+                                title = stringResource(R.string.view_no_location),
+                                subtitle = stringResource(R.string.no_gps_photos_subtitle),
+                                imageRes = R.drawable.menu_no_gps_painting,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                onClick = onNavigateToNoLocation
+                            )
+                        }
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.footer_text),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
             }
+        }
+
+        if (showLibraryInfo) {
+            LibraryInfoDialog(
+                stats = stats,
+                indexState = indexState,
+                onDismiss = { showLibraryInfo = false }
+            )
         }
     }
 }
 
 @Composable
-private fun BrandHeader(onSearchClick: () -> Unit) {
+private fun BrandHeader(
+    indexState: IndexUiState,
+    canSync: Boolean,
+    onSyncClick: () -> Unit,
+    onLibraryInfoClick: () -> Unit,
+    onSearchClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 32.dp)
-            .padding(horizontal = PhotoTrailSpacing.ScreenHorizontal)
+            .height(236.dp)
+            .background(MaterialTheme.colorScheme.primary)
     ) {
-        IconButton(
-            onClick = onSearchClick,
-            modifier = Modifier.align(Alignment.TopEnd)
-        ) {
-            Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search_hint))
-        }
-        
+        Image(
+            painter = painterResource(R.drawable.atlas_antique_album),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0x99331F10),
+                            Color(0x77331F10),
+                            Color(0xCC2B1A0D)
+                        )
+                    )
+                )
+        )
+
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(horizontal = PhotoTrailSpacing.ScreenHorizontal)
+                .padding(top = 18.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                imageVector = Icons.Default.Place,
-                contentDescription = null,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.journey_atlas_subtitle),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
+                    )
+                }
+
+                HeaderIconButton(
+                    icon = Icons.Default.Refresh,
+                    contentDescription = stringResource(R.string.sync),
+                    enabled = canSync && !indexState.isIndexing,
+                    onClick = onSyncClick
+                )
+                Spacer(Modifier.width(8.dp))
+                HeaderIconButton(
+                    icon = Icons.Default.Settings,
+                    contentDescription = stringResource(R.string.library_info),
+                    onClick = onLibraryInfoClick
+                )
+                Spacer(Modifier.width(8.dp))
+                HeaderIconButton(
+                    icon = Icons.Default.Search,
+                    contentDescription = stringResource(R.string.search_hint),
+                    onClick = onSearchClick
+                )
+            }
+
+            Column {
+                Text(
+                    text = stringResource(R.string.home_atlas_headline),
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = stringResource(R.string.app_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+
+        if (indexState.isIndexing) {
+            LinearProgressIndicator(
+                progress = { if (indexState.total > 0) indexState.processed.toFloat() / indexState.total else 0f },
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .padding(8.dp),
-                tint = MaterialTheme.colorScheme.onPrimary
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = stringResource(R.string.app_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp)
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+                color = MaterialTheme.colorScheme.tertiary,
+                trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+                strokeCap = StrokeCap.Round
             )
         }
     }
 }
 
 @Composable
-private fun StatsSummaryRow(
+private fun HeaderIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White.copy(alpha = if (enabled) 0.14f else 0.08f),
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    ) {
+        IconButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier.size(42.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = contentDescription,
+                tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = if (enabled) 1f else 0.36f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibraryInfoDialog(
     stats: HomeStats,
     indexState: IndexUiState,
-    canSync: Boolean,
-    onSyncClick: () -> Unit
+    onDismiss: () -> Unit
 ) {
-    PhotoTrailCard {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.confirm))
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.library_info),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LibraryInfoMetric(
+                        modifier = Modifier.weight(1f),
+                        value = stats.totalCount.toString(),
+                        label = stringResource(R.string.filter_photos)
+                    )
+                    LibraryInfoMetric(
+                        modifier = Modifier.weight(1f),
+                        value = stats.locationCount.toString(),
+                        label = stringResource(R.string.gps_count_short)
+                    )
+                    LibraryInfoMetric(
+                        modifier = Modifier.weight(1f),
+                        value = stats.tripCount.toString(),
+                        label = stringResource(R.string.filter_trips)
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
                 Text(
-                    text = stringResource(R.string.library_status),
+                    text = stringResource(R.string.last_sync_result),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                if (indexState.isIndexing) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    IconButton(
-                        onClick = onSyncClick,
-                        modifier = Modifier.size(24.dp),
-                        enabled = canSync
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.sync), modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                PhotoTrailStatChip(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.AutoMirrored.Filled.List,
-                    label = stringResource(R.string.photo_count, stats.totalCount)
-                )
-                PhotoTrailStatChip(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.LocationOn,
-                    label = stringResource(R.string.gps_count, stats.locationCount)
-                )
-                PhotoTrailStatChip(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.Star,
-                    label = stringResource(R.string.trip_count, stats.tripCount)
-                )
-            }
-            if (indexState.isIndexing) {
-                LinearProgressIndicator(
-                    progress = { if (indexState.total > 0) indexState.processed.toFloat() / indexState.total else 0f },
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
-            }
-            indexState.errorMessage?.let { message ->
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.indexing_failed, message),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            indexState.stats?.let { syncStats ->
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(
-                        R.string.sync_stats_summary,
-                        syncStats.newCount,
-                        syncStats.updatedCount,
-                        syncStats.deletedCount,
-                        syncStats.unchangedCount,
-                        syncStats.mediaStoreCount
-                    ),
+                indexState.errorMessage?.let { message ->
+                    Text(
+                        text = stringResource(R.string.indexing_failed, message),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } ?: indexState.stats?.let { syncStats ->
+                    Text(
+                        text = stringResource(
+                            R.string.sync_stats_summary,
+                            syncStats.newCount,
+                            syncStats.updatedCount,
+                            syncStats.deletedCount,
+                            syncStats.unchangedCount,
+                            syncStats.mediaStoreCount
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } ?: Text(
+                    text = stringResource(R.string.no_sync_result),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    )
+}
+
+@Composable
+private fun LibraryInfoMetric(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
         }
     }
 }
@@ -349,56 +486,146 @@ private fun RecentMemorySection(
     recentTrip: TripAlbumEntity?,
     onOpenTrip: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        PhotoTrailSectionTitle(title = stringResource(R.string.recent_memory))
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            PhotoTrailSectionTitle(title = stringResource(R.string.recent_memory))
+            Text(
+                text = stringResource(R.string.view_trips),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
         if (recentTrip != null) {
             PhotoTrailCard(onClick = onOpenTrip) {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
-                    AsyncImage(
-                        model = recentTrip.representativePhotoUri,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
+                Column(modifier = Modifier.padding(12.dp)) {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
-                                )
+                            .fillMaxWidth()
+                            .height(216.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                            .border(
+                                BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                                RoundedCornerShape(8.dp)
                             )
-                    )
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(16.dp)
+                            .padding(8.dp)
                     ) {
-                        Text(
-                            text = recentTrip.displayTitle,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.recent_trip_summary,
-                                recentTrip.startDateKey,
-                                recentTrip.photoCount
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(6.dp))
+                        ) {
+                            AsyncImage(
+                                model = recentTrip.finalRepresentativeUri,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0x332C1A0C))
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color(0x992C1A0C)
+                                            )
+                                        )
+                                    )
+                            )
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(10.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.94f),
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.trip_stats, recentTrip.photoCount, recentTrip.placeGroupCount),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = recentTrip.displayTitle,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(
+                                    R.string.recent_trip_summary,
+                                    recentTrip.startDateKey,
+                                    recentTrip.photoCount
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
             }
         } else {
             PhotoTrailCard {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(100.dp),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = stringResource(R.string.no_trips_yet), color = MaterialTheme.colorScheme.outline)
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(24.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text(
+                            text = stringResource(R.string.no_trips_yet),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = stringResource(R.string.no_trip_albums_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -411,29 +638,41 @@ private fun PermissionCard(
     onRequest: () -> Unit
 ) {
     PhotoTrailCard {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.photo_permission_required),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.photo_permission_description),
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-            Spacer(Modifier.height(12.dp))
-            PhotoTrailPrimaryButton(
-                text = stringResource(R.string.request_photo_permission),
-                onClick = onRequest,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(26.dp))
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.photo_permission_required),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.photo_permission_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                PhotoTrailPrimaryButton(
+                    text = stringResource(R.string.request_photo_permission),
+                    onClick = onRequest,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -443,34 +682,50 @@ private fun PermissionCard(
 private fun MenuCard(
     title: String,
     subtitle: String,
-    icon: ImageVector,
+    imageRes: Int,
     color: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Card(
+    PhotoTrailCard(
         onClick = onClick,
-        modifier = modifier.height(100.dp),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = color)
+        modifier = modifier.height(176.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+        Box(modifier = Modifier.fillMaxSize().padding(14.dp)) {
+            Surface(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .height(98.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = color,
+                contentColor = MaterialTheme.colorScheme.onSurface
             ) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                Image(
+                    painter = painterResource(imageRes),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
             }
-            Spacer(Modifier.width(16.dp))
-            Column {
-                Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(text = subtitle, style = MaterialTheme.typography.bodySmall)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(end = 4.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
             }
         }
     }
@@ -486,11 +741,13 @@ private fun photoPermissions(): Array<String> =
     when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(
             Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO,
             Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
             Manifest.permission.ACCESS_MEDIA_LOCATION
         )
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(
             Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO,
             Manifest.permission.ACCESS_MEDIA_LOCATION
         )
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> arrayOf(

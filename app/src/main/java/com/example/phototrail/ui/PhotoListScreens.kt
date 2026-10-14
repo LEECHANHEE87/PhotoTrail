@@ -204,6 +204,7 @@ fun PhotoGridScreen(
     filter: (PhotoItemEntity) -> Boolean = { true },
     tripKey: String? = null,
     onExcludePhoto: ((Long) -> Unit)? = null,
+    onExcludePhotos: ((List<Long>) -> Unit)? = null,
     onSetRepresentative: ((String) -> Unit)? = null,
     onAddPhotosClick: (() -> Unit)? = null,
     isSelectionMode: Boolean = false,
@@ -213,14 +214,43 @@ fun PhotoGridScreen(
     val visiblePhotos = remember(allPhotos, filter) { allPhotos.filter(filter) }
     
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
+    var isExcludeSelectionMode by remember { mutableStateOf(false) }
+    val isPhotoSelectionMode = isSelectionMode || isExcludeSelectionMode
+
+    LaunchedEffect(visiblePhotos, isPhotoSelectionMode) {
+        if (isPhotoSelectionMode) {
+            val visibleIds = visiblePhotos.map { it.mediaStoreId }.toSet()
+            selectedIds = selectedIds.intersect(visibleIds)
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("$title (${visiblePhotos.size})") },
+                title = {
+                    Text(
+                        if (isExcludeSelectionMode) {
+                            stringResource(R.string.selected_photo_count, selectedIds.size)
+                        } else {
+                            "$title (${visiblePhotos.size})"
+                        }
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    IconButton(
+                        onClick = {
+                            if (isExcludeSelectionMode) {
+                                selectedIds = emptySet()
+                                isExcludeSelectionMode = false
+                            } else {
+                                onBackClick()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            if (isExcludeSelectionMode) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(if (isExcludeSelectionMode) R.string.cancel else R.string.back)
+                        )
                     }
                 },
                 actions = {
@@ -231,9 +261,33 @@ fun PhotoGridScreen(
                         ) {
                             Icon(Icons.Default.Check, contentDescription = stringResource(R.string.add))
                         }
-                    } else if (onAddPhotosClick != null) {
-                        IconButton(onClick = onAddPhotosClick) {
-                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_photo))
+                    } else if (isExcludeSelectionMode) {
+                        IconButton(
+                            onClick = {
+                                onExcludePhotos?.invoke(selectedIds.toList())
+                                selectedIds = emptySet()
+                                isExcludeSelectionMode = false
+                            },
+                            enabled = selectedIds.isNotEmpty()
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.exclude_selected_photos))
+                        }
+                    } else {
+                        if (onAddPhotosClick != null) {
+                            IconButton(onClick = onAddPhotosClick) {
+                                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_photo))
+                            }
+                        }
+                        if (onExcludePhotos != null) {
+                            IconButton(
+                                onClick = {
+                                    selectedIds = emptySet()
+                                    isExcludeSelectionMode = true
+                                },
+                                enabled = visiblePhotos.isNotEmpty()
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.select_photos_to_exclude))
+                            }
                         }
                     }
                 }
@@ -261,7 +315,7 @@ fun PhotoGridScreen(
                     PhotoGridItem(
                         photo = photo,
                         onClick = {
-                            if (isSelectionMode) {
+                            if (isPhotoSelectionMode) {
                                 selectedIds = if (photo.mediaStoreId in selectedIds) {
                                     selectedIds - photo.mediaStoreId
                                 } else {
@@ -272,7 +326,7 @@ fun PhotoGridScreen(
                             }
                         },
                         isSelected = photo.mediaStoreId in selectedIds,
-                        isSelectionMode = isSelectionMode,
+                        isSelectionMode = isPhotoSelectionMode,
                         onExclude = if (onExcludePhoto != null) { { onExcludePhoto(photo.mediaStoreId) } } else null,
                         onSetRepresentative = if (onSetRepresentative != null) { { onSetRepresentative(photo.uri) } } else null
                     )

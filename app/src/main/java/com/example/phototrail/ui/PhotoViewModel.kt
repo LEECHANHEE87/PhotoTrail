@@ -198,10 +198,26 @@ class PhotoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addPhotosToTrip(tripKey: String, photoMediaStoreIds: List<Long>) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.addPhotosToTrip(tripKey, photoMediaStoreIds)
+            }
+        }
+    }
+
     fun excludePhotoFromTrip(tripKey: String, photoMediaStoreId: Long) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 repository.excludePhotoFromTrip(tripKey, photoMediaStoreId)
+            }
+        }
+    }
+
+    fun excludePhotosFromTrip(tripKey: String, photoMediaStoreIds: List<Long>) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.excludePhotosFromTrip(tripKey, photoMediaStoreIds)
             }
         }
     }

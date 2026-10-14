@@ -11,8 +11,8 @@ object PhotoTrailSpacing {
 }
 
 object PhotoTrailShape {
-    val Small = 12.dp
-    val Card = 16.dp
-    val ImageCard = 24.dp
-    val Button = 14.dp
+    val Small = 6.dp
+    val Card = 8.dp
+    val ImageCard = 8.dp
+    val Button = 8.dp
 }

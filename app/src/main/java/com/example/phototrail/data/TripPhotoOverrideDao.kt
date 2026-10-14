@@ -14,8 +14,14 @@ interface TripPhotoOverrideDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(override: TripPhotoOverrideEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(overrides: List<TripPhotoOverrideEntity>)
+
     @Query("DELETE FROM trip_photo_overrides WHERE tripKey = :tripKey AND photoMediaStoreId = :photoMediaStoreId")
     suspend fun delete(tripKey: String, photoMediaStoreId: Long)
+
+    @Query("DELETE FROM trip_photo_overrides WHERE tripKey = :tripKey AND photoMediaStoreId IN (:photoMediaStoreIds)")
+    suspend fun deleteAll(tripKey: String, photoMediaStoreIds: List<Long>)
 
     @Query("DELETE FROM trip_photo_overrides WHERE tripKey = :tripKey")
     suspend fun clearForTrip(tripKey: String)

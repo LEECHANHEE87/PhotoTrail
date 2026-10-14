@@ -425,20 +425,43 @@ class PhotoRepository(
     // TODO: ?좎쭨 ?⑥쐞媛 ?꾨땶 媛쒕퀎 ?ъ쭊 ?⑥쐞???몃???遺꾨━ 湲곕뒫 援ы쁽 ?꾩슂
 
     suspend fun addPhotoToTrip(tripKey: String, photoMediaStoreId: Long) {
-        overrideDao.insert(TripPhotoOverrideEntity(
-            tripKey = tripKey,
-            photoMediaStoreId = photoMediaStoreId,
-            overrideType = OverrideType.INCLUDE
-        ))
-        generateTripAlbums()
+        addPhotosToTrip(tripKey, listOf(photoMediaStoreId))
+    }
+
+    suspend fun addPhotosToTrip(tripKey: String, photoMediaStoreIds: List<Long>) {
+        updateTripPhotoOverrides(tripKey, photoMediaStoreIds, OverrideType.INCLUDE)
     }
 
     suspend fun excludePhotoFromTrip(tripKey: String, photoMediaStoreId: Long) {
-        overrideDao.insert(TripPhotoOverrideEntity(
-            tripKey = tripKey,
-            photoMediaStoreId = photoMediaStoreId,
-            overrideType = OverrideType.EXCLUDE
-        ))
+        excludePhotosFromTrip(tripKey, listOf(photoMediaStoreId))
+    }
+
+    suspend fun excludePhotosFromTrip(tripKey: String, photoMediaStoreIds: List<Long>) {
+        updateTripPhotoOverrides(tripKey, photoMediaStoreIds, OverrideType.EXCLUDE)
+    }
+
+    private suspend fun updateTripPhotoOverrides(
+        tripKey: String,
+        photoMediaStoreIds: List<Long>,
+        overrideType: OverrideType
+    ) {
+        val distinctIds = photoMediaStoreIds.distinct()
+        if (distinctIds.isEmpty()) return
+
+        val now = System.currentTimeMillis()
+        val overrides = distinctIds.map { photoMediaStoreId ->
+            TripPhotoOverrideEntity(
+                tripKey = tripKey,
+                photoMediaStoreId = photoMediaStoreId,
+                overrideType = overrideType,
+                createdAt = now
+            )
+        }
+
+        database.withTransaction {
+            overrideDao.deleteAll(tripKey, distinctIds)
+            overrideDao.insertAll(overrides)
+        }
         generateTripAlbums()
     }
 

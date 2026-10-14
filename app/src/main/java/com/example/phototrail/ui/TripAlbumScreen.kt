@@ -1,6 +1,7 @@
 package com.example.phototrail.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,7 +9,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -56,6 +56,10 @@ fun TripAlbumScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                ),
                 title = { 
                     Text(
                         if (isMergeMode) stringResource(R.string.merge_mode)
@@ -244,7 +248,7 @@ fun TripAlbumCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column {
-            Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().height(232.dp)) {
                 AsyncImage(
                     model = album.finalRepresentativeUri,
                     contentDescription = null,
@@ -257,20 +261,52 @@ fun TripAlbumCard(
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.08f),
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.78f)
+                                )
                             )
                         )
                 )
+
+                val dateRange = if (album.startDateKey == album.endDateKey) {
+                    album.startDateKey
+                } else {
+                    "${album.startDateKey} ~ ${album.endDateKey}"
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = dateRange,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
 
                 if (isSelectionEnabled) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(12.dp)
-                            .size(28.dp)
+                            .size(34.dp)
                             .background(
-                                if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.3f),
-                                CircleShape
+                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                RoundedCornerShape(8.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -279,42 +315,48 @@ fun TripAlbumCard(
                         }
                     }
                 } else {
-                    IconButton(
-                        onClick = { showMenu = true },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.28f)
                     ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = Color.White)
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.rename_trip)) },
-                                onClick = { showMenu = false; onRename() },
-                                leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.split_trip)) },
-                                onClick = { showMenu = false; onSplit() },
-                                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.merge_trips)) },
-                                onClick = { showMenu = false; onEnterMergeMode() },
-                                leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) }
-                            )
-                            if (album.isHidden) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = Color.White)
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.unhide_trip)) },
-                                    onClick = { showMenu = false; onRestore() },
-                                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
+                                    text = { Text(stringResource(R.string.rename_trip)) },
+                                    onClick = { showMenu = false; onRename() },
+                                    leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) }
                                 )
-                            } else {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.hide_trip)) },
-                                    onClick = { showMenu = false; onHide() },
-                                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                                    text = { Text(stringResource(R.string.split_trip)) },
+                                    onClick = { showMenu = false; onSplit() },
+                                    leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.merge_trips)) },
+                                    onClick = { showMenu = false; onEnterMergeMode() },
+                                    leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) }
+                                )
+                                if (album.isHidden) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.unhide_trip)) },
+                                        onClick = { showMenu = false; onRestore() },
+                                        leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
+                                    )
+                                } else {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.hide_trip)) },
+                                        onClick = { showMenu = false; onHide() },
+                                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -333,40 +375,41 @@ fun TripAlbumCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
-                    val dateRange = if (album.startDateKey == album.endDateKey) {
-                        album.startDateKey
-                    } else {
-                        "${album.startDateKey} ~ ${album.endDateKey}"
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.White.copy(alpha = 0.16f),
+                            contentColor = Color.White
+                        ) {
+                            Text(
+                                text = stringResource(R.string.photo_count, album.photoCount),
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.White.copy(alpha = 0.16f),
+                            contentColor = Color.White
+                        ) {
+                            Text(
+                                text = stringResource(R.string.place_count, album.placeGroupCount),
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
-                    Text(
-                        text = dateRange,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
                 }
             }
             
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PhotoTrailStatChip(
-                        icon = Icons.AutoMirrored.Filled.List,
-                        label = stringResource(R.string.photo_count, album.photoCount),
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    PhotoTrailStatChip(
-                        icon = Icons.Default.LocationOn,
-                        label = stringResource(R.string.place_count, album.placeGroupCount)
-                    )
-                }
+            Column(modifier = Modifier.padding(14.dp)) {
+                TripLogStrip(album = album)
 
                 if (!isSelectionEnabled) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -380,14 +423,88 @@ fun TripAlbumCard(
                         OutlinedIconButton(
                             onClick = onMapClick,
                             modifier = Modifier.size(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Icon(Icons.Default.LocationOn, contentDescription = stringResource(R.string.view_on_map), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TripLogStrip(album: TripAlbumEntity) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TripLogMetric(
+                modifier = Modifier.weight(1f),
+                icon = Icons.AutoMirrored.Filled.List,
+                value = album.photoCount.toString(),
+                label = stringResource(R.string.filter_photos)
+            )
+            TripLogMetric(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.LocationOn,
+                value = album.placeGroupCount.toString(),
+                label = stringResource(R.string.place_count_short)
+            )
+            TripLogMetric(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Info,
+                value = album.noLocationPhotoCount.toString(),
+                label = stringResource(R.string.no_gps_short)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TripLogMetric(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(34.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
         }
     }
 }

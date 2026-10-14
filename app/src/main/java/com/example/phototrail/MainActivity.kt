@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -18,6 +19,8 @@ import android.util.Log
 import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.OnMapsSdkInitializedCallback
 import com.example.phototrail.data.OverrideType
+import com.example.phototrail.camera.CameraScreen
+import com.example.phototrail.camera.CaptureType
 import com.example.phototrail.ui.DateListScreen
 import com.example.phototrail.ui.HomeScreen
 import com.example.phototrail.ui.MapScreen
@@ -26,6 +29,15 @@ import com.example.phototrail.ui.PhotoViewModel
 import com.example.phototrail.ui.PhotoViewerScreen
 import com.example.phototrail.ui.SearchScreen
 import com.example.phototrail.ui.TripAlbumScreen
+import com.example.phototrail.ui.VideoGridScreen
+import com.example.phototrail.ui.VideoPlayerScreen
+import com.example.phototrail.ui.VideoViewModel
+import com.example.phototrail.ui.MakingTripListScreen
+import com.example.phototrail.ui.MakingSetupScreen
+import com.example.phototrail.ui.MakingViewModel
+import com.example.phototrail.ui.toCameraSettings
+import com.example.phototrail.ui.withCameraSettings
+import com.example.phototrail.camera.CameraMode
 import com.example.phototrail.ui.theme.PhotoTrailTheme
 
 class MainActivity : ComponentActivity() {
@@ -47,10 +59,15 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     val photoViewModel: PhotoViewModel = viewModel()
+                    val videoViewModel: VideoViewModel = viewModel()
+                    val makingViewModel: MakingViewModel = viewModel()
                     NavHost(navController = navController, startDestination = "home") {
                         composable("home") {
                             HomeScreen(
                                 viewModel = photoViewModel,
+                                onNavigateToCamera = { navController.navigate("camera") },
+                                onNavigateToMaking = { navController.navigate("making") },
+                                onNavigateToVideos = { navController.navigate("videos") },
                                 onNavigateToMap = { navController.navigate("map") },
                                 onNavigateToDates = { navController.navigate("dates") },
                                 onNavigateToNoLocation = {
@@ -59,6 +76,83 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToTrips = { navController.navigate("trips") },
                                 onNavigateToSearch = { navController.navigate("search") }
                             )
+                        }
+                        composable("camera") {
+                            CameraScreen(
+                                onBackClick = { navController.popBackStack() },
+                                onMediaCaptured = { captured ->
+                                    if (captured.type == CaptureType.PHOTO) {
+                                        photoViewModel.indexPhotos()
+                                    } else {
+                                        videoViewModel.registerCapturedVideo(captured)
+                                    }
+                                }
+                            )
+                        }
+                        composable("videos") {
+                            VideoGridScreen(
+                                viewModel = videoViewModel,
+                                onBackClick = { navController.popBackStack() },
+                                onVideoClick = { video ->
+                                    videoViewModel.selectVideo(video)
+                                    navController.navigate("video-player")
+                                }
+                            )
+                        }
+                        composable("video-player") {
+                            val selectedVideo by videoViewModel.selectedVideo.collectAsState()
+                            VideoPlayerScreen(
+                                video = selectedVideo,
+                                onBackClick = { navController.popBackStack() }
+                            )
+                        }
+                        composable("making") {
+                            MakingTripListScreen(
+                                photoViewModel = photoViewModel,
+                                makingViewModel = makingViewModel,
+                                onBackClick = { navController.popBackStack() },
+                                onTripClick = { trip ->
+                                    navController.navigate("making/setup/${Uri.encode(trip.tripKey)}")
+                                }
+                            )
+                        }
+                        composable("making/setup/{tripKey}") { entry ->
+                            val tripKey = Uri.decode(entry.arguments?.getString("tripKey").orEmpty())
+                            MakingSetupScreen(
+                                tripKey = tripKey,
+                                photoViewModel = photoViewModel,
+                                makingViewModel = makingViewModel,
+                                onBackClick = { navController.popBackStack() },
+                                onStartCamera = {
+                                    navController.navigate("making/camera/${Uri.encode(tripKey)}")
+                                }
+                            )
+                        }
+                        composable("making/camera/{tripKey}") { entry ->
+                            val tripKey = Uri.decode(entry.arguments?.getString("tripKey").orEmpty())
+                            val project by makingViewModel.selectedProject.collectAsState()
+                            val trips by photoViewModel.tripAlbums.collectAsState()
+                            LaunchedEffect(tripKey) { makingViewModel.selectTrip(tripKey) }
+                            project?.takeIf { it.tripKey == tripKey }?.let { activeProject ->
+                                CameraScreen(
+                                    onBackClick = { navController.popBackStack() },
+                                    onMediaCaptured = { captured ->
+                                        makingViewModel.registerCapturedVideo(tripKey, captured)
+                                    },
+                                    initialSettings = activeProject.toCameraSettings(),
+                                    initialMode = CameraMode.VIDEO,
+                                    modeSelectionEnabled = false,
+                                    settingsEnabled = false,
+                                    showFrameGuide = activeProject.showGrid,
+                                    videoDurationMs = activeProject.clipDurationMs,
+                                    projectTitle = trips.firstOrNull { it.tripKey == tripKey }?.displayTitle,
+                                    onSettingsChanged = { effectiveSettings ->
+                                        makingViewModel.saveProject(
+                                            activeProject.withCameraSettings(effectiveSettings)
+                                        )
+                                    }
+                                )
+                            }
                         }
                         composable("search") {
                             SearchScreen(
@@ -197,6 +291,9 @@ class MainActivity : ComponentActivity() {
                                 onExcludePhoto = { photoId ->
                                     photoViewModel.excludePhotoFromTrip(tripKey, photoId)
                                 },
+                                onExcludePhotos = { photoIds ->
+                                    photoViewModel.excludePhotosFromTrip(tripKey, photoIds)
+                                },
                                 onSetRepresentative = { uri ->
                                     trip?.let { photoViewModel.setRepresentativePhoto(it.id, uri) }
                                 },
@@ -213,9 +310,7 @@ class MainActivity : ComponentActivity() {
                                 isSelectionMode = true,
                                 onBackClick = { navController.popBackStack() },
                                 onPhotosSelected = { photoIds ->
-                                    photoIds.forEach { photoId ->
-                                        photoViewModel.addPhotoToTrip(tripKey, photoId)
-                                    }
+                                    photoViewModel.addPhotosToTrip(tripKey, photoIds)
                                     navController.popBackStack()
                                 },
                                 onPhotoClick = { _, _ -> }

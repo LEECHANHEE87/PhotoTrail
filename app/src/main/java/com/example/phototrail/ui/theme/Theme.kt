@@ -13,28 +13,48 @@ import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
     primary = PhotoTrailPrimary,
+    onPrimary = PhotoTrailOnPrimary,
+    primaryContainer = PhotoTrailPrimaryContainer,
+    onPrimaryContainer = PhotoTrailOnPrimaryContainer,
     secondary = PhotoTrailSecondary,
+    onSecondary = PhotoTrailOnSecondary,
+    secondaryContainer = PhotoTrailSecondaryContainer,
+    onSecondaryContainer = PhotoTrailOnSecondaryContainer,
     tertiary = PhotoTrailAccent,
+    onTertiary = PhotoTrailOnAccent,
+    tertiaryContainer = PhotoTrailAccentContainer,
+    onTertiaryContainer = PhotoTrailOnAccentContainer,
     background = PhotoTrailBackground,
     surface = PhotoTrailSurface,
-    onPrimary = PhotoTrailSurface,
-    onSecondary = PhotoTrailSurface,
-    onTertiary = PhotoTrailSurface,
     onBackground = PhotoTrailTextPrimary,
     onSurface = PhotoTrailTextPrimary,
-    surfaceVariant = PhotoTrailBackground,
-    onSurfaceVariant = PhotoTrailTextSecondary
+    surfaceVariant = PhotoTrailSurfaceMuted,
+    onSurfaceVariant = PhotoTrailTextSecondary,
+    outline = PhotoTrailOutline,
+    outlineVariant = PhotoTrailOutline.copy(alpha = 0.65f)
 )
 
 private val DarkColorScheme = darkColorScheme(
     primary = PhotoTrailPrimaryDark,
+    onPrimary = PhotoTrailOnPrimaryDark,
+    primaryContainer = PhotoTrailPrimaryContainerDark,
+    onPrimaryContainer = PhotoTrailOnPrimaryContainerDark,
     secondary = PhotoTrailSecondaryDark,
+    onSecondary = PhotoTrailOnSecondaryDark,
+    secondaryContainer = PhotoTrailSecondaryContainerDark,
+    onSecondaryContainer = PhotoTrailOnSecondaryContainerDark,
+    tertiary = PhotoTrailAccentDark,
+    onTertiary = PhotoTrailOnAccentDark,
+    tertiaryContainer = PhotoTrailAccentContainerDark,
+    onTertiaryContainer = PhotoTrailOnAccentContainerDark,
     background = PhotoTrailBackgroundDark,
     surface = PhotoTrailSurfaceDark,
-    onPrimary = PhotoTrailTextPrimaryDark,
-    onSecondary = PhotoTrailTextPrimaryDark,
     onBackground = PhotoTrailTextPrimaryDark,
-    onSurface = PhotoTrailTextPrimaryDark
+    onSurface = PhotoTrailTextPrimaryDark,
+    surfaceVariant = PhotoTrailSurfaceMutedDark,
+    onSurfaceVariant = PhotoTrailTextSecondaryDark,
+    outline = PhotoTrailOutlineDark,
+    outlineVariant = PhotoTrailOutlineDark.copy(alpha = 0.75f)
 )
 
 @Composable

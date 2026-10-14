@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.graphics.*
 import android.graphics.Color as AndroidColor
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -246,7 +247,7 @@ fun MapScreen(
         }
     }
 
-    Scaffold { innerPadding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
@@ -305,9 +306,10 @@ fun MapScreen(
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                    tonalElevation = 4.dp,
-                    shadowElevation = 8.dp
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -324,8 +326,16 @@ fun MapScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                PhotoTrailStatChip(icon = Icons.AutoMirrored.Filled.List, label = stringResource(R.string.photo_count, photos.size), containerColor = ComposeColor.Transparent)
-                                PhotoTrailStatChip(icon = Icons.Default.Place, label = stringResource(R.string.place_count, groups.size), containerColor = ComposeColor.Transparent)
+                                PhotoTrailStatChip(
+                                    icon = Icons.AutoMirrored.Filled.List,
+                                    label = stringResource(R.string.photo_count, photos.size),
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+                                )
+                                PhotoTrailStatChip(
+                                    icon = Icons.Default.Place,
+                                    label = stringResource(R.string.place_count, groups.size),
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+                                )
                             }
                         }
                     }
@@ -334,16 +344,17 @@ fun MapScreen(
                 if (dateFilter != null && groups.size >= 2) {
                     Spacer(Modifier.height(8.dp))
                     Surface(
-                        shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                        tonalElevation = 2.dp
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.94f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        tonalElevation = 0.dp
                     ) {
                         Text(
                             text = stringResource(R.string.estimated_path),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
                         )
                     }
                 }
@@ -373,8 +384,13 @@ fun MapScreen(
                         if (dateFilter != null) selectedStopIndex = -1
                     },
                     sheetState = sheetState,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    dragHandle = { BottomSheetDefaults.DragHandle() }
+                    containerColor = MaterialTheme.colorScheme.background,
+                    shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+                    dragHandle = {
+                        BottomSheetDefaults.DragHandle(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                        )
+                    }
                 ) {
                     BottomSheetContent(
                         group = group,
@@ -435,29 +451,48 @@ private fun TimelineCard(
     PhotoTrailCard(
         onClick = onClick,
         modifier = Modifier
-            .width(200.dp)
-            .height(90.dp)
-            .border(if (isSelected) 2.dp else 0.dp, if (isSelected) MaterialTheme.colorScheme.primary else ComposeColor.Transparent, MaterialTheme.shapes.medium)
+            .width(208.dp)
+            .height(104.dp)
+            .border(
+                width = if (isSelected) 2.dp else 0.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else ComposeColor.Transparent,
+                shape = MaterialTheme.shapes.medium
+            )
     ) {
-        Row(modifier = Modifier.fillMaxSize().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxSize().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(contentAlignment = Alignment.TopStart) {
+                val photoShape = MaterialTheme.shapes.small
                 AsyncImage(
                     model = Uri.parse(group.photos.first().uri),
                     contentDescription = null,
-                    modifier = Modifier.size(64.dp).clip(MaterialTheme.shapes.small),
+                    modifier = Modifier
+                        .size(70.dp)
+                        .clip(photoShape)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, photoShape),
                     contentScale = ContentScale.Crop
                 )
                 Surface(
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.padding(4.dp)
                 ) {
-                    Text("#$order", style = MaterialTheme.typography.labelSmall, color = ComposeColor.White, modifier = Modifier.padding(horizontal = 4.dp))
+                    Text(
+                        "#$order",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                    )
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(text = timeLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Column(verticalArrangement = Arrangement.Center) {
+                Text(
+                    text = timeLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text(
                     text = stringResource(R.string.photo_count, group.photos.size),
                     style = MaterialTheme.typography.bodySmall,
@@ -477,46 +512,69 @@ private fun BottomSheetContent(
 ) {
     val context = LocalContext.current
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 48.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = Uri.parse(group.photos.first().uri),
-                contentDescription = null,
-                modifier = Modifier.size(100.dp).clip(MaterialTheme.shapes.medium),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = if (order != null) "#$order · ${group.dateKey}" else group.dateKey,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            tonalElevation = 0.dp
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val photoShape = MaterialTheme.shapes.medium
+                    AsyncImage(
+                        model = Uri.parse(group.photos.first().uri),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(104.dp)
+                            .clip(photoShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, photoShape),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (order != null) "#$order · ${group.dateKey}" else group.dateKey,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        PhotoTrailStatChip(
+                            icon = Icons.AutoMirrored.Filled.List,
+                            label = stringResource(R.string.photo_count, group.photos.size),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
+                }
+
+                PhotoTrailPrimaryButton(
+                    text = stringResource(R.string.open_photo_list),
+                    onClick = { onOpenBucket(group.bucketKey) },
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Default.Search
                 )
-                PhotoTrailStatChip(icon = Icons.AutoMirrored.Filled.List, label = stringResource(R.string.photo_count, group.photos.size), containerColor = MaterialTheme.colorScheme.secondaryContainer)
             }
         }
-        
-        PhotoTrailPrimaryButton(
-            text = stringResource(R.string.open_photo_list),
-            onClick = { onOpenBucket(group.bucketKey) },
-            modifier = Modifier.fillMaxWidth(),
-            icon = Icons.Default.Search
-        )
 
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(group.photos) { photo ->
                 AsyncImage(
                     model = Uri.parse(photo.uri),
                     contentDescription = null,
-                    modifier = Modifier.size(120.dp).clip(MaterialTheme.shapes.small).clickable {
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(Uri.parse(photo.uri), "image/*")
-                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        }
-                        context.startActivity(intent)
-                    },
+                    modifier = Modifier
+                        .size(120.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(Uri.parse(photo.uri), "image/*")
+                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            }
+                            context.startActivity(intent)
+                        },
                     contentScale = ContentScale.Crop
                 )
             }

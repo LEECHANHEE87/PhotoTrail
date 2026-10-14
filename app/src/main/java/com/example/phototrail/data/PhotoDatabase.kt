@@ -9,8 +9,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [PhotoItemEntity::class, TripAlbumEntity::class, TripPhotoOverrideEntity::class],
-    version = 5,
+    entities = [
+        PhotoItemEntity::class,
+        VideoItemEntity::class,
+        TripAlbumEntity::class,
+        TripPhotoOverrideEntity::class,
+        MakingProjectEntity::class,
+        TripVideoLinkEntity::class
+    ],
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -18,6 +25,9 @@ abstract class PhotoDatabase : RoomDatabase() {
     abstract fun photoItemDao(): PhotoItemDao
     abstract fun tripAlbumDao(): TripAlbumDao
     abstract fun tripPhotoOverrideDao(): TripPhotoOverrideDao
+    abstract fun videoItemDao(): VideoItemDao
+    abstract fun makingProjectDao(): MakingProjectDao
+    abstract fun tripVideoLinkDao(): TripVideoLinkDao
 
     companion object {
         @Volatile
@@ -109,6 +119,64 @@ abstract class PhotoDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS videos (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        mediaStoreId INTEGER NOT NULL,
+                        uri TEXT NOT NULL,
+                        displayName TEXT,
+                        takenAt INTEGER,
+                        latitude REAL,
+                        longitude REAL,
+                        hasLocation INTEGER NOT NULL,
+                        durationMs INTEGER NOT NULL,
+                        width INTEGER NOT NULL,
+                        height INTEGER NOT NULL,
+                        fps REAL,
+                        codec TEXT,
+                        fileSize INTEGER NOT NULL,
+                        dateKey TEXT NOT NULL,
+                        bucketKey TEXT NOT NULL,
+                        favorite INTEGER NOT NULL,
+                        syncStatus TEXT NOT NULL,
+                        remotePath TEXT,
+                        checksum TEXT,
+                        dateAdded INTEGER,
+                        dateModified INTEGER,
+                        indexedAt INTEGER NOT NULL,
+                        lastSeenAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS making_projects (
+                        tripKey TEXT NOT NULL PRIMARY KEY,
+                        videoQuality TEXT NOT NULL,
+                        orientation TEXT NOT NULL,
+                        audioEnabled INTEGER NOT NULL,
+                        showGrid INTEGER NOT NULL,
+                        clipDurationMs INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS trip_video_links (
+                        tripKey TEXT NOT NULL,
+                        videoMediaStoreId INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        PRIMARY KEY(tripKey, videoMediaStoreId)
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): PhotoDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -116,8 +184,14 @@ abstract class PhotoDatabase : RoomDatabase() {
                     PhotoDatabase::class.java,
                     "photo-trail.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
-                    .fallbackToDestructiveMigration() // Backup if migration fails
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7
+                    )
                     .build().also { instance = it }
             }
     }
