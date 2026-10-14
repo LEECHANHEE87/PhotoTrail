@@ -58,7 +58,7 @@
     <string name="no_photos">이 그룹에 사진이 없습니다.</string>
     <string name="back">뒤로</string>
     <string name="cannot_open_photo">사진을 열 수 없습니다</string>
-    <string name="open_photo_list">사진 목록 보기</string>
+    <string name="open_photo_list">사진·영상 보기</string>
     <string name="open_in_external_gallery">갤러리에서 열기</string>
     <string name="more_options">더보기</string>
     <string name="criterion_current_location">현재 위치 주변</string>
@@ -123,6 +123,11 @@
     <string name="clear_search">검색어 지우기</string>
     <string name="reset_filters">필터 초기화</string>
     <string name="open_camera">카메라 열기</string>
+    <string name="capture_studio">촬영 스튜디오</string>
+    <string name="capture_studio_subtitle">여행의 순간을 촬영하고 정리하세요</string>
+    <string name="open_camera_subtitle">사진 또는 5초 영상 촬영</string>
+    <string name="video_library_subtitle">촬영한 클립 모아보기</string>
+    <string name="home_making_subtitle">여행 설정으로 통일 촬영</string>
     <string name="camera_permission_required">카메라 권한이 필요합니다.</string>
     <string name="grant_camera_permission">카메라 허용</string>
     <string name="camera_photo">사진</string>
@@ -164,4 +169,15 @@
     <string name="making_start">동일 설정으로 촬영 시작</string>
     <string name="orientation_portrait_9_16">세로 9:16</string>
     <string name="orientation_landscape_16_9">가로 16:9</string>
+    <string name="create_trip">여행 만들기</string>
+    <string name="album_settings">앨범 설정</string>
+    <string name="edit_trip_schedule">여행 일정 수정</string>
+    <string name="trip_name">여행 이름</string>
+    <string name="trip_name_optional">여행 이름 (비워두면 날짜 제목 사용)</string>
+    <string name="trip_start_date">시작일</string>
+    <string name="trip_end_date">종료일</string>
+    <string name="trip_schedule_auto_include">이 기간에 촬영한 사진과 영상이 자동으로 포함됩니다. 원본 파일은 이동하거나 복사하지 않습니다.</string>
+    <string name="trip_date_error">종료일은 시작일과 같거나 이후여야 합니다.</string>
+    <string name="video_count">영상 %1$d개</string>
+    <string name="play_video">영상 재생</string>
 </resources>

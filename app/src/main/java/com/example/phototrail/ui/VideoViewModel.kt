@@ -25,8 +25,15 @@ data class VideoIndexUiState(
 
 class VideoViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = VideoRepository(application)
+    private val database = com.example.phototrail.data.PhotoDatabase.getInstance(application)
 
     val allVideos: StateFlow<List<VideoItemEntity>> = repository.allVideos.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        emptyList()
+    )
+
+    val tripLinks = database.tripVideoLinkDao().getAllLinks().stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         emptyList()

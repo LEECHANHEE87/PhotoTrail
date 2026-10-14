@@ -1,5 +1,6 @@
 package com.example.phototrail.ui
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,11 +32,16 @@ import coil.compose.AsyncImage
 import com.example.phototrail.R
 import com.example.phototrail.data.TripAlbumEntity
 import com.example.phototrail.ui.theme.PhotoTrailSpacing
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripAlbumScreen(
     viewModel: PhotoViewModel,
+    videoViewModel: VideoViewModel,
     showHiddenOnly: Boolean = false,
     onBackClick: () -> Unit,
     onNavigateToHidden: () -> Unit = {},
@@ -43,10 +50,14 @@ fun TripAlbumScreen(
 ) {
     val tripAlbums by (if (showHiddenOnly) viewModel.hiddenTripAlbums else viewModel.tripAlbums).collectAsState()
     val isGenerating by viewModel.isGeneratingTrips.collectAsState()
+    val videos by videoViewModel.allVideos.collectAsState()
+    val videoLinks by videoViewModel.tripLinks.collectAsState()
 
     var tripToRename by remember { mutableStateOf<TripAlbumEntity?>(null) }
+    var tripToEdit by remember { mutableStateOf<TripAlbumEntity?>(null) }
     var tripToHide by remember { mutableStateOf<TripAlbumEntity?>(null) }
     var tripToSplit by remember { mutableStateOf<TripAlbumEntity?>(null) }
+    var showCreateTrip by remember { mutableStateOf(false) }
     
     var isMergeMode by remember { mutableStateOf(false) }
     var selectedTripIds by remember { mutableStateOf(setOf<Long>()) }
@@ -108,6 +119,15 @@ fun TripAlbumScreen(
                 }
             )
         },
+        floatingActionButton = {
+            if (!showHiddenOnly && !isMergeMode) {
+                ExtendedFloatingActionButton(
+                    onClick = { showCreateTrip = true },
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text(stringResource(R.string.create_trip)) }
+                )
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         if (tripAlbums.isEmpty() && !isGenerating) {
@@ -129,6 +149,11 @@ fun TripAlbumScreen(
                     items(tripAlbums) { album ->
                         TripAlbumCard(
                             album = album,
+                            videoCount = videos.count { video ->
+                                video.dateKey in album.dateKeys.split(",") || videoLinks.any {
+                                    it.tripKey == album.tripKey && it.videoMediaStoreId == video.mediaStoreId
+                                }
+                            },
                             onClick = {
                                 if (isMergeMode) {
                                     selectedTripIds = if (album.id in selectedTripIds) {
@@ -142,6 +167,7 @@ fun TripAlbumScreen(
                             },
                             onMapClick = { onOpenTripOnMap(album) },
                             onRename = { tripToRename = album },
+                            onEditSchedule = { tripToEdit = album },
                             onHide = { tripToHide = album },
                             onRestore = { viewModel.unhideTripAlbum(album.id) },
                             onSplit = { tripToSplit = album },
@@ -163,6 +189,11 @@ fun TripAlbumScreen(
                     items(tripAlbums) { album ->
                         TripAlbumCard(
                             album = album,
+                            videoCount = videos.count { video ->
+                                video.dateKey in album.dateKeys.split(",") || videoLinks.any {
+                                    it.tripKey == album.tripKey && it.videoMediaStoreId == video.mediaStoreId
+                                }
+                            },
                             onClick = {
                                 if (isMergeMode) {
                                     selectedTripIds = if (album.id in selectedTripIds) {
@@ -176,6 +207,7 @@ fun TripAlbumScreen(
                             },
                             onMapClick = { onOpenTripOnMap(album) },
                             onRename = { tripToRename = album },
+                            onEditSchedule = { tripToEdit = album },
                             onHide = { tripToHide = album },
                             onRestore = { viewModel.unhideTripAlbum(album.id) },
                             onSplit = { tripToSplit = album },
@@ -199,6 +231,36 @@ fun TripAlbumScreen(
                 onConfirm = { newTitle ->
                     viewModel.renameTripAlbum(album.id, newTitle)
                     tripToRename = null
+                }
+            )
+        }
+
+        if (showCreateTrip) {
+            TripScheduleDialog(
+                title = stringResource(R.string.create_trip),
+                initialName = "",
+                initialStartDate = todayDateKey(),
+                initialEndDate = todayDateKey(),
+                nameRequired = true,
+                onDismiss = { showCreateTrip = false },
+                onConfirm = { name, startDate, endDate ->
+                    viewModel.createTripAlbum(name, startDate, endDate)
+                    showCreateTrip = false
+                }
+            )
+        }
+
+        tripToEdit?.let { album ->
+            TripScheduleDialog(
+                title = stringResource(R.string.edit_trip_schedule),
+                initialName = album.customTitle.orEmpty(),
+                initialStartDate = album.startDateKey,
+                initialEndDate = album.endDateKey,
+                nameRequired = false,
+                onDismiss = { tripToEdit = null },
+                onConfirm = { name, startDate, endDate ->
+                    viewModel.updateTripSchedule(album.id, name, startDate, endDate)
+                    tripToEdit = null
                 }
             )
         }
@@ -231,9 +293,11 @@ fun TripAlbumScreen(
 @Composable
 fun TripAlbumCard(
     album: TripAlbumEntity,
+    videoCount: Int,
     onClick: () -> Unit,
     onMapClick: () -> Unit,
     onRename: () -> Unit,
+    onEditSchedule: () -> Unit,
     onHide: () -> Unit,
     onRestore: () -> Unit,
     onSplit: () -> Unit,
@@ -314,52 +378,6 @@ fun TripAlbumCard(
                             Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
-                } else {
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.28f)
-                    ) {
-                        IconButton(
-                            onClick = { showMenu = true },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options), tint = Color.White)
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.rename_trip)) },
-                                    onClick = { showMenu = false; onRename() },
-                                    leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.split_trip)) },
-                                    onClick = { showMenu = false; onSplit() },
-                                    leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.merge_trips)) },
-                                    onClick = { showMenu = false; onEnterMergeMode() },
-                                    leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) }
-                                )
-                                if (album.isHidden) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.unhide_trip)) },
-                                        onClick = { showMenu = false; onRestore() },
-                                        leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
-                                    )
-                                } else {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.hide_trip)) },
-                                        onClick = { showMenu = false; onHide() },
-                                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
-                                    )
-                                }
-                            }
-                        }
-                    }
                 }
                 
                 Column(
@@ -384,6 +402,18 @@ fun TripAlbumCard(
                         ) {
                             Text(
                                 text = stringResource(R.string.photo_count, album.photoCount),
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.White.copy(alpha = 0.16f),
+                            contentColor = Color.White
+                        ) {
+                            Text(
+                                text = stringResource(R.string.video_count, videoCount),
                                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold
@@ -420,6 +450,56 @@ fun TripAlbumCard(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Default.Search
                         )
+                        Box {
+                            OutlinedButton(
+                                onClick = { showMenu = true },
+                                modifier = Modifier.height(48.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp)
+                            ) {
+                                Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.album_settings))
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_trip_schedule)) },
+                                    onClick = { showMenu = false; onEditSchedule() },
+                                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.rename_trip)) },
+                                    onClick = { showMenu = false; onRename() },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.split_trip)) },
+                                    onClick = { showMenu = false; onSplit() },
+                                    leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.merge_trips)) },
+                                    onClick = { showMenu = false; onEnterMergeMode() },
+                                    leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) }
+                                )
+                                if (album.isHidden) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.unhide_trip)) },
+                                        onClick = { showMenu = false; onRestore() },
+                                        leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
+                                    )
+                                } else {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.hide_trip)) },
+                                        onClick = { showMenu = false; onHide() },
+                                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                                    )
+                                }
+                            }
+                        }
                         OutlinedIconButton(
                             onClick = onMapClick,
                             modifier = Modifier.size(48.dp),
@@ -434,6 +514,108 @@ fun TripAlbumCard(
         }
     }
 }
+
+@Composable
+private fun TripScheduleDialog(
+    title: String,
+    initialName: String,
+    initialStartDate: String,
+    initialEndDate: String,
+    nameRequired: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String) -> Unit
+) {
+    var name by remember(initialName) { mutableStateOf(initialName) }
+    var startDate by remember(initialStartDate) { mutableStateOf(initialStartDate) }
+    var endDate by remember(initialEndDate) { mutableStateOf(initialEndDate) }
+    val isValid = (!nameRequired || name.isNotBlank()) && startDate <= endDate
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = {
+                        Text(stringResource(if (nameRequired) R.string.trip_name else R.string.trip_name_optional))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TripDateButton(
+                    label = stringResource(R.string.trip_start_date),
+                    dateKey = startDate,
+                    onDateSelected = { selected ->
+                        startDate = selected
+                        if (endDate < selected) endDate = selected
+                    }
+                )
+                TripDateButton(
+                    label = stringResource(R.string.trip_end_date),
+                    dateKey = endDate,
+                    onDateSelected = { endDate = it }
+                )
+                Text(
+                    text = stringResource(R.string.trip_schedule_auto_include),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (startDate > endDate) {
+                    Text(
+                        text = stringResource(R.string.trip_date_error),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.trim(), startDate, endDate) },
+                enabled = isValid
+            ) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
+    )
+}
+
+@Composable
+private fun TripDateButton(
+    label: String,
+    dateKey: String,
+    onDateSelected: (String) -> Unit
+) {
+    val context = LocalContext.current
+    OutlinedButton(
+        onClick = {
+            val initial = parseDateKey(dateKey)
+            val calendar = Calendar.getInstance().apply { time = initial }
+            DatePickerDialog(
+                context,
+                { _, year, month, day ->
+                    onDateSelected(String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day))
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            ).show()
+        },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Icon(Icons.Default.DateRange, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text("$label  $dateKey")
+    }
+}
+
+private fun todayDateKey(): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+private fun parseDateKey(value: String): Date =
+    runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(value) }.getOrNull() ?: Date()
 
 @Composable
 private fun TripLogStrip(album: TripAlbumEntity) {

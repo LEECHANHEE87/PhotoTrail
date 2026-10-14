@@ -158,6 +158,22 @@ class PhotoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun createTripAlbum(title: String, startDateKey: String, endDateKey: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.createManualTrip(title, startDateKey, endDateKey)
+            }
+        }
+    }
+
+    fun updateTripSchedule(id: Long, title: String, startDateKey: String, endDateKey: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.updateTripSchedule(id, title, startDateKey, endDateKey)
+            }
+        }
+    }
+
     fun hideTripAlbum(id: Long) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {

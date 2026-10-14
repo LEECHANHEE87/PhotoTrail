@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +48,7 @@ private enum class PhotoPermissionStatus {
 @Composable
 fun HomeScreen(
     viewModel: PhotoViewModel,
+    videoViewModel: VideoViewModel,
     onNavigateToCamera: () -> Unit,
     onNavigateToMaking: () -> Unit,
     onNavigateToVideos: () -> Unit,
@@ -73,6 +75,7 @@ fun HomeScreen(
     LaunchedEffect(permissionStatus.hasPhotoAccess) {
         if (permissionStatus.hasPhotoAccess) {
             viewModel.indexPhotos(isAutoSync = true)
+            if (context.hasVideoAccess()) videoViewModel.indexVideos()
         }
     }
 
@@ -101,7 +104,10 @@ fun HomeScreen(
             BrandHeader(
                 indexState = indexState,
                 canSync = permissionStatus.hasPhotoAccess,
-                onSyncClick = { viewModel.indexPhotos() },
+                onSyncClick = {
+                    viewModel.indexPhotos()
+                    if (context.hasVideoAccess()) videoViewModel.indexVideos()
+                },
                 onLibraryInfoClick = { showLibraryInfo = true },
                 onSearchClick = onNavigateToSearch
             )
@@ -109,26 +115,14 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .padding(horizontal = PhotoTrailSpacing.ScreenHorizontal)
+                    .padding(top = 24.dp)
                     .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                PhotoTrailPrimaryButton(
-                    text = stringResource(R.string.open_camera),
-                    onClick = onNavigateToCamera,
-                    modifier = Modifier.fillMaxWidth(),
-                    icon = Icons.Default.Add
-                )
-                PhotoTrailPrimaryButton(
-                    text = stringResource(R.string.video_library),
-                    onClick = onNavigateToVideos,
-                    modifier = Modifier.fillMaxWidth(),
-                    icon = Icons.Default.Star
-                )
-                PhotoTrailPrimaryButton(
-                    text = stringResource(R.string.making_title),
-                    onClick = onNavigateToMaking,
-                    modifier = Modifier.fillMaxWidth(),
-                    icon = Icons.Default.Add
+                CaptureActionPanel(
+                    onCameraClick = onNavigateToCamera,
+                    onVideosClick = onNavigateToVideos,
+                    onMakingClick = onNavigateToMaking
                 )
 
                 // 2. Permission Card (if needed)
@@ -237,6 +231,166 @@ fun HomeScreen(
                 indexState = indexState,
                 onDismiss = { showLibraryInfo = false }
             )
+        }
+    }
+}
+
+@Composable
+private fun CaptureActionPanel(
+    onCameraClick: () -> Unit,
+    onVideosClick: () -> Unit,
+    onMakingClick: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = stringResource(R.string.capture_studio),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = stringResource(R.string.capture_studio_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_home_camera),
+                    contentDescription = null,
+                    modifier = Modifier.padding(9.dp).size(18.dp)
+                )
+            }
+        }
+
+        ElevatedCard(
+            onClick = onCameraClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 17.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_home_camera),
+                            contentDescription = null,
+                            modifier = Modifier.size(27.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.open_camera),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.open_camera_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
+                    )
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CaptureActionTile(
+                title = stringResource(R.string.video_library),
+                subtitle = stringResource(R.string.video_library_subtitle),
+                icon = painterResource(R.drawable.ic_home_video_library),
+                onClick = onVideosClick,
+                modifier = Modifier.weight(1f)
+            )
+            CaptureActionTile(
+                title = stringResource(R.string.making_title),
+                subtitle = stringResource(R.string.home_making_subtitle),
+                icon = painterResource(R.drawable.ic_home_making),
+                onClick = onMakingClick,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CaptureActionTile(
+    title: String,
+    subtitle: String,
+    icon: Painter,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ElevatedCard(
+        onClick = onClick,
+        modifier = modifier.height(116.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(15.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Surface(
+                modifier = Modifier.size(38.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.11f),
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(painter = icon, contentDescription = null, modifier = Modifier.size(21.dp))
+                }
+            }
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
@@ -784,3 +938,9 @@ private val PhotoPermissionStatus.hasPhotoAccess: Boolean
 
 private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+private fun Context.hasVideoAccess(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    hasPermission(Manifest.permission.READ_MEDIA_VIDEO)
+} else {
+    hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+}

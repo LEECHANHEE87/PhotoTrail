@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -23,12 +23,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.ImageLoader
+import coil.decode.VideoFrameDecoder
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
 import com.example.phototrail.R
 import com.example.phototrail.data.PhotoItemEntity
+import com.example.phototrail.data.VideoItemEntity
 import com.example.phototrail.ui.theme.PhotoTrailSpacing
 import kotlinx.coroutines.flow.StateFlow
 
@@ -208,10 +214,24 @@ fun PhotoGridScreen(
     onSetRepresentative: ((String) -> Unit)? = null,
     onAddPhotosClick: (() -> Unit)? = null,
     isSelectionMode: Boolean = false,
-    onPhotosSelected: ((List<Long>) -> Unit)? = null
+    onPhotosSelected: ((List<Long>) -> Unit)? = null,
+    videos: StateFlow<List<VideoItemEntity>>? = null,
+    videoFilter: (VideoItemEntity) -> Boolean = { true },
+    onVideoClick: ((VideoItemEntity) -> Unit)? = null
 ) {
     val allPhotos by photos.collectAsState()
     val visiblePhotos = remember(allPhotos, filter) { allPhotos.filter(filter) }
+    val videoState = videos?.collectAsState()
+    val allVideos = videoState?.value.orEmpty()
+    val visibleVideos = remember(allVideos, videoFilter) { allVideos.filter(videoFilter) }
+    val mediaItems = remember(visiblePhotos, visibleVideos) {
+        (visiblePhotos.map { TripGridEntry.Photo(it) } + visibleVideos.map { TripGridEntry.Video(it) })
+            .sortedByDescending { it.takenAt }
+    }
+    val context = LocalContext.current
+    val videoImageLoader = remember {
+        ImageLoader.Builder(context).components { add(VideoFrameDecoder.Factory()) }.build()
+    }
     
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
     var isExcludeSelectionMode by remember { mutableStateOf(false) }
@@ -232,7 +252,7 @@ fun PhotoGridScreen(
                         if (isExcludeSelectionMode) {
                             stringResource(R.string.selected_photo_count, selectedIds.size)
                         } else {
-                            "$title (${visiblePhotos.size})"
+                            "$title (${mediaItems.size})"
                         }
                     )
                 },
@@ -294,7 +314,7 @@ fun PhotoGridScreen(
             )
         }
     ) { innerPadding ->
-        if (visiblePhotos.isEmpty()) {
+        if (mediaItems.isEmpty()) {
             PhotoTrailEmptyState(
                 modifier = Modifier.padding(innerPadding),
                 icon = Icons.Default.Info,
@@ -311,29 +331,113 @@ fun PhotoGridScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                itemsIndexed(visiblePhotos, key = { _, photo -> photo.id }) { index, photo ->
-                    PhotoGridItem(
-                        photo = photo,
-                        onClick = {
-                            if (isPhotoSelectionMode) {
-                                selectedIds = if (photo.mediaStoreId in selectedIds) {
-                                    selectedIds - photo.mediaStoreId
-                                } else {
-                                    selectedIds + photo.mediaStoreId
-                                }
-                            } else {
-                                onPhotoClick(visiblePhotos, index)
-                            }
-                        },
-                        isSelected = photo.mediaStoreId in selectedIds,
-                        isSelectionMode = isPhotoSelectionMode,
-                        onExclude = if (onExcludePhoto != null) { { onExcludePhoto(photo.mediaStoreId) } } else null,
-                        onSetRepresentative = if (onSetRepresentative != null) { { onSetRepresentative(photo.uri) } } else null
-                    )
+                items(mediaItems, key = { it.key }) { item ->
+                    when (item) {
+                        is TripGridEntry.Photo -> {
+                            val photo = item.value
+                            PhotoGridItem(
+                                photo = photo,
+                                onClick = {
+                                    if (isPhotoSelectionMode) {
+                                        selectedIds = if (photo.mediaStoreId in selectedIds) {
+                                            selectedIds - photo.mediaStoreId
+                                        } else {
+                                            selectedIds + photo.mediaStoreId
+                                        }
+                                    } else {
+                                        onPhotoClick(visiblePhotos, visiblePhotos.indexOf(photo))
+                                    }
+                                },
+                                isSelected = photo.mediaStoreId in selectedIds,
+                                isSelectionMode = isPhotoSelectionMode,
+                                onExclude = if (onExcludePhoto != null) { { onExcludePhoto(photo.mediaStoreId) } } else null,
+                                onSetRepresentative = if (onSetRepresentative != null) { { onSetRepresentative(photo.uri) } } else null
+                            )
+                        }
+                        is TripGridEntry.Video -> TripVideoGridItem(
+                            video = item.value,
+                            imageLoader = videoImageLoader,
+                            enabled = !isPhotoSelectionMode,
+                            onClick = { onVideoClick?.invoke(item.value) }
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+private sealed interface TripGridEntry {
+    val key: String
+    val takenAt: Long
+
+    data class Photo(val value: PhotoItemEntity) : TripGridEntry {
+        override val key = "photo_${value.mediaStoreId}"
+        override val takenAt = value.takenAt ?: 0L
+    }
+
+    data class Video(val value: VideoItemEntity) : TripGridEntry {
+        override val key = "video_${value.mediaStoreId}"
+        override val takenAt = value.takenAt ?: 0L
+    }
+}
+
+@Composable
+private fun TripVideoGridItem(
+    video: VideoItemEntity,
+    imageLoader: ImageLoader,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .padding(1.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = enabled, onClick = onClick)
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(Uri.parse(video.uri))
+                .videoFrameMillis(0)
+                .crossfade(true)
+                .build(),
+            imageLoader = imageLoader,
+            contentDescription = video.displayName,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(38.dp)
+                .background(Color.Black.copy(alpha = 0.58f), androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.play_video), tint = Color.White)
+        }
+        Surface(
+            modifier = Modifier.align(Alignment.BottomEnd).padding(5.dp),
+            color = Color.Black.copy(alpha = 0.68f),
+            contentColor = Color.White,
+            shape = RoundedCornerShape(4.dp)
+        ) {
+            Text(
+                text = formatTripVideoDuration(video.durationMs),
+                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+        if (!enabled) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+        }
+    }
+}
+
+private fun formatTripVideoDuration(durationMs: Long): String {
+    val totalSeconds = (durationMs / 1_000L).coerceAtLeast(0L)
+    return "%d:%02d".format(totalSeconds / 60L, totalSeconds % 60L)
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)

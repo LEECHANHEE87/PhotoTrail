@@ -171,6 +171,7 @@ class PhotoRepository(
         val allPhotos = dao.getAllPhotosSync().sortedBy { it.takenAt }
         if (allPhotos.isEmpty()) {
             tripDao.deleteAllAutoTrips()
+            refreshManualTrips(emptyList())
             return
         }
 
@@ -208,12 +209,16 @@ class PhotoRepository(
             )
         }
 
+        val existingTrips = tripDao.getAllTripAlbumsSync().associateBy { it.tripKey }
+        val manuallyAssignedDates = existingTrips.values
+            .filter { it.isManual && !it.isHidden }
+            .flatMap { it.dateKeys.split(",") }
+            .toSet()
         val generator = TripAlbumGeneratorV2()
-        val trips = generator.groupDays(dailySummaries)
+        val trips = generator.groupDays(dailySummaries.filter { it.dateKey !in manuallyAssignedDates })
         
         Log.d("TripGrouping", "Daily summaries: ${dailySummaries.size}, Final trips: ${trips.size}")
 
-        val existingTrips = tripDao.getAllTripAlbumsSync().associateBy { it.tripKey }
         val autoExistingTrips = existingTrips.values.filter { !it.isManual }
 
         // 1. Generate Automatic Trips
@@ -308,6 +313,88 @@ class PhotoRepository(
             tripDao.insertAll(finalTripEntities + manualTrips)
         }
     }
+
+    suspend fun createManualTrip(title: String, startDateKey: String, endDateKey: String) {
+        val dateKeys = buildInclusiveDateKeys(startDateKey, endDateKey)
+        require(dateKeys.isNotEmpty()) { "Invalid trip date range" }
+        val now = System.currentTimeMillis()
+        val trip = TripAlbumEntity(
+            tripKey = "manual_${now}_${dateKeys.hashCode()}",
+            generatedTitle = generatedTripTitle(startDateKey, endDateKey),
+            customTitle = title.trim().takeIf { it.isNotEmpty() },
+            isUserEdited = title.isNotBlank(),
+            startDateKey = startDateKey,
+            endDateKey = endDateKey,
+            dateKeys = dateKeys.joinToString(","),
+            photoCount = 0,
+            locationPhotoCount = 0,
+            noLocationPhotoCount = 0,
+            placeGroupCount = 0,
+            representativePhotoUri = null,
+            centerLatitude = null,
+            centerLongitude = null,
+            isManual = true,
+            createdAt = now,
+            updatedAt = now
+        )
+        tripDao.insertAll(listOf(trip))
+        generateTripAlbums()
+    }
+
+    suspend fun updateTripSchedule(
+        id: Long,
+        title: String,
+        startDateKey: String,
+        endDateKey: String
+    ) {
+        val existing = tripDao.getTripAlbumById(id) ?: return
+        val dateKeys = buildInclusiveDateKeys(startDateKey, endDateKey)
+        require(dateKeys.isNotEmpty()) { "Invalid trip date range" }
+        tripDao.insertAll(
+            listOf(
+                existing.copy(
+                    generatedTitle = generatedTripTitle(startDateKey, endDateKey),
+                    customTitle = title.trim().takeIf { it.isNotEmpty() },
+                    isUserEdited = title.isNotBlank(),
+                    startDateKey = startDateKey,
+                    endDateKey = endDateKey,
+                    dateKeys = dateKeys.joinToString(","),
+                    isManual = true,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        )
+        generateTripAlbums()
+    }
+
+    private suspend fun refreshManualTrips(allPhotos: List<PhotoItemEntity>) {
+        val manualTrips = tripDao.getAllTripAlbumsSync().filter { it.isManual }.map { existing ->
+            val dateKeys = existing.dateKeys.split(",").toSet()
+            val overrides = overrideDao.getOverridesForTrip(existing.tripKey)
+            val finalPhotos = applyOverrides(
+                allPhotos.filter { it.dateKey in dateKeys },
+                overrides,
+                allPhotos
+            )
+            val located = finalPhotos.filter { it.hasLocation }
+            existing.copy(
+                photoCount = finalPhotos.size,
+                locationPhotoCount = located.size,
+                noLocationPhotoCount = finalPhotos.size - located.size,
+                placeGroupCount = located.map { it.bucketKey }.distinct().size,
+                representativePhotoUri = finalPhotos.maxByOrNull { it.takenAt ?: 0L }?.uri,
+                centerLatitude = located.mapNotNull { it.latitude }.average().takeIf { !it.isNaN() },
+                centerLongitude = located.mapNotNull { it.longitude }.average().takeIf { !it.isNaN() },
+                updatedAt = System.currentTimeMillis()
+            )
+        }
+        if (manualTrips.isNotEmpty()) tripDao.insertAll(manualTrips)
+    }
+
+    private fun generatedTripTitle(startDateKey: String, endDateKey: String): String =
+        if (startDateKey == endDateKey) "$startDateKey 하루 기록"
+        else "$startDateKey ~ $endDateKey 여행 기록"
+
 
     private fun findMatchingExistingTrip(
         newDateKeys: Set<String>,

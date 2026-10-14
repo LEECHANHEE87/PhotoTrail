@@ -58,7 +58,7 @@
     <string name="no_photos">No photos in this group.</string>
     <string name="back">Back</string>
     <string name="cannot_open_photo">Cannot open photo</string>
-    <string name="open_photo_list">View photos</string>
+    <string name="open_photo_list">View photos &amp; videos</string>
     <string name="open_in_external_gallery">Open in gallery</string>
     <string name="more_options">More options</string>
     <string name="criterion_current_location">Near your current location</string>
@@ -123,6 +123,11 @@
     <string name="clear_search">Clear search</string>
     <string name="reset_filters">Reset filters</string>
     <string name="open_camera">Open Camera</string>
+    <string name="capture_studio">Capture studio</string>
+    <string name="capture_studio_subtitle">Capture and organize the moments of your trip</string>
+    <string name="open_camera_subtitle">Take a photo or a 5-second clip</string>
+    <string name="video_library_subtitle">Browse captured clips</string>
+    <string name="home_making_subtitle">Shoot with a trip preset</string>
     <string name="camera_permission_required">Camera permission is required.</string>
     <string name="grant_camera_permission">Allow Camera</string>
     <string name="camera_photo">Photo</string>
@@ -164,4 +169,15 @@
     <string name="making_start">Start consistent shooting</string>
     <string name="orientation_portrait_9_16">Portrait 9:16</string>
     <string name="orientation_landscape_16_9">Landscape 16:9</string>
+    <string name="create_trip">Create trip</string>
+    <string name="album_settings">Album settings</string>
+    <string name="edit_trip_schedule">Edit trip schedule</string>
+    <string name="trip_name">Trip name</string>
+    <string name="trip_name_optional">Trip name (leave blank for automatic title)</string>
+    <string name="trip_start_date">Start</string>
+    <string name="trip_end_date">End</string>
+    <string name="trip_schedule_auto_include">Photos and videos captured during this period are included automatically. Original files are not moved or copied.</string>
+    <string name="trip_date_error">The end date must be the same as or later than the start date.</string>
+    <string name="video_count">Videos %1$d</string>
+    <string name="play_video">Play video</string>
 </resources>

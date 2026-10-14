@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
                         composable("home") {
                             HomeScreen(
                                 viewModel = photoViewModel,
+                                videoViewModel = videoViewModel,
                                 onNavigateToCamera = { navController.navigate("camera") },
                                 onNavigateToMaking = { navController.navigate("making") },
                                 onNavigateToVideos = { navController.navigate("videos") },
@@ -176,6 +177,7 @@ class MainActivity : ComponentActivity() {
                         composable("trips") {
                             TripAlbumScreen(
                                 viewModel = photoViewModel,
+                                videoViewModel = videoViewModel,
                                 showHiddenOnly = false,
                                 onBackClick = { navController.popBackStack() },
                                 onNavigateToHidden = { navController.navigate("trips/hidden") },
@@ -190,6 +192,7 @@ class MainActivity : ComponentActivity() {
                         composable("trips/hidden") {
                             TripAlbumScreen(
                                 viewModel = photoViewModel,
+                                videoViewModel = videoViewModel,
                                 showHiddenOnly = true,
                                 onBackClick = { navController.popBackStack() },
                                 onOpenTrip = { album ->
@@ -268,7 +271,10 @@ class MainActivity : ComponentActivity() {
                             val tripKey = entry.arguments?.getString("tripKey").orEmpty()
                             val dateKeys = entry.arguments?.getString("dates").orEmpty().split(",")
                             val albums by photoViewModel.tripAlbums.collectAsState()
-                            val trip = albums.find { it.tripKey == tripKey }
+                            val hiddenAlbums by photoViewModel.hiddenTripAlbums.collectAsState()
+                            val trip = (albums + hiddenAlbums).find { it.tripKey == tripKey }
+                            val tripLinks by videoViewModel.tripLinks.collectAsState()
+                            val activeDateKeys = trip?.dateKeys?.split(",") ?: dateKeys
                             
                             val overrides by photoViewModel.allOverrides.collectAsState()
                             val tripOverrides = overrides.filter { it.tripKey == tripKey }
@@ -277,7 +283,7 @@ class MainActivity : ComponentActivity() {
                                 title = trip?.displayTitle ?: getString(R.string.trip_album_title),
                                 photos = photoViewModel.allPhotos,
                                 filter = { photo ->
-                                    val isBase = photo.dateKey in dateKeys
+                                    val isBase = photo.dateKey in activeDateKeys
                                     val isExcluded = tripOverrides.any { it.photoMediaStoreId == photo.mediaStoreId && it.overrideType == OverrideType.EXCLUDE }
                                     val isIncluded = tripOverrides.any { it.photoMediaStoreId == photo.mediaStoreId && it.overrideType == OverrideType.INCLUDE }
                                     (isBase || isIncluded) && !isExcluded
@@ -299,6 +305,16 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onAddPhotosClick = {
                                     navController.navigate("photos/add-to-trip/$tripKey")
+                                },
+                                videos = videoViewModel.allVideos,
+                                videoFilter = { video ->
+                                    video.dateKey in activeDateKeys || tripLinks.any {
+                                        it.tripKey == tripKey && it.videoMediaStoreId == video.mediaStoreId
+                                    }
+                                },
+                                onVideoClick = { video ->
+                                    videoViewModel.selectVideo(video)
+                                    navController.navigate("video-player")
                                 }
                             )
                         }
