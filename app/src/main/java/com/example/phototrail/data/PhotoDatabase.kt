@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MakingProjectEntity::class,
         TripVideoLinkEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -177,6 +177,23 @@ abstract class PhotoDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val splitRecord = "\uBD84\uB9AC \uAE30\uB85D"
+                db.execSQL(
+                    """
+                    UPDATE trip_albums
+                    SET generatedTitle = CASE
+                        WHEN startDateKey = endDateKey
+                            THEN startDateKey || ' ' || '$splitRecord'
+                        ELSE startDateKey || ' ~ ' || endDateKey || ' ' || '$splitRecord'
+                    END
+                    WHERE tripKey LIKE 'manual_split_%'
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): PhotoDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -190,7 +207,8 @@ abstract class PhotoDatabase : RoomDatabase() {
                         MIGRATION_3_4,
                         MIGRATION_4_5,
                         MIGRATION_5_6,
-                        MIGRATION_6_7
+                        MIGRATION_6_7,
+                        MIGRATION_7_8
                     )
                     .build().also { instance = it }
             }

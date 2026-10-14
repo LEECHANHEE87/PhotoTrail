@@ -229,8 +229,8 @@ class PhotoRepository(
             val dateKeysSet = dateKeysList.toSet()
             val dateKeysString = dateKeysList.joinToString(",")
             
-            // TODO: tripKey媛 援ъ꽦 ?좎쭨??踰붿쐞???곕씪 蹂?섎?濡? ?먮룞 ?ъ깮????tripKey媛 ?щ씪吏硫??몄쭛媛믪씠 ?좎떎?????덉쓬. 
-            // ?ν썑 ???덉젙?곸씤 留ㅼ묶 濡쒖쭅(?? 寃뱀튂???좎쭨 鍮꾩쨷 ?뺤씤)?쇰줈 媛쒖꽑 ?꾩슂.
+            // Date ranges can change after re-indexing. The overlap match below preserves
+            // the stable trip key so user edits and media links are not lost.
             val tripKey = "${startDate}_${endDate}_${dateKeysString.hashCode()}"
             var existing = existingTrips[tripKey]
             
@@ -248,11 +248,7 @@ class PhotoRepository(
             val locPhotos = finalPhotos.filter { it.hasLocation }
             val placeGroups = locPhotos.map { it.bucketKey }.distinct().size
 
-            val genTitle = if (startDate == endDate) {
-                "$startDate 하루 기록"
-            } else {
-                "$startDate ~ $endDate 여행 기록"
-            }
+            val genTitle = buildGeneratedTripTitle(startDate, endDate)
 
             TripAlbumEntity(
                 id = existing?.id ?: 0,
@@ -320,7 +316,7 @@ class PhotoRepository(
         val now = System.currentTimeMillis()
         val trip = TripAlbumEntity(
             tripKey = "manual_${now}_${dateKeys.hashCode()}",
-            generatedTitle = generatedTripTitle(startDateKey, endDateKey),
+            generatedTitle = buildGeneratedTripTitle(startDateKey, endDateKey),
             customTitle = title.trim().takeIf { it.isNotEmpty() },
             isUserEdited = title.isNotBlank(),
             startDateKey = startDateKey,
@@ -353,7 +349,7 @@ class PhotoRepository(
         tripDao.insertAll(
             listOf(
                 existing.copy(
-                    generatedTitle = generatedTripTitle(startDateKey, endDateKey),
+                    generatedTitle = buildGeneratedTripTitle(startDateKey, endDateKey),
                     customTitle = title.trim().takeIf { it.isNotEmpty() },
                     isUserEdited = title.isNotBlank(),
                     startDateKey = startDateKey,
@@ -390,11 +386,6 @@ class PhotoRepository(
         }
         if (manualTrips.isNotEmpty()) tripDao.insertAll(manualTrips)
     }
-
-    private fun generatedTripTitle(startDateKey: String, endDateKey: String): String =
-        if (startDateKey == endDateKey) "$startDateKey 하루 기록"
-        else "$startDateKey ~ $endDateKey 여행 기록"
-
 
     private fun findMatchingExistingTrip(
         newDateKeys: Set<String>,
@@ -440,7 +431,7 @@ class PhotoRepository(
         
         val newTrip = TripAlbumEntity(
             tripKey = tripKey,
-            generatedTitle = "$startDate ~ $endDate 병합 여행 기록",
+            generatedTitle = buildMergedTripTitle(startDate, endDate),
             startDateKey = startDate,
             endDateKey = endDate,
             dateKeys = dateKeys,
@@ -466,7 +457,7 @@ class PhotoRepository(
         generateTripAlbums()
     }
 
-    // TODO: 蹂묓빀 痍⑥냼 湲곕뒫 援ы쁽 (mergedIntoTripKey瑜??쒓굅?섍퀬 ?뚯뒪 ?몃┰?ㅼ쓽 isHidden???댁젣)
+    // TODO: Add merge undo by clearing mergedIntoTripKey and restoring source trips.
 
     suspend fun splitTrip(id: Long, dateKeysToSplit: List<String>) {
         val originalTrip = tripDao.getTripAlbumById(id) ?: return
@@ -475,13 +466,13 @@ class PhotoRepository(
 
         if (dateKeysToSplit.isEmpty() || remainingDateKeys.isEmpty()) return
 
-        val createTrip = { keys: List<String>, titleSuffix: String ->
+        val createTrip = { keys: List<String> ->
             val sorted = keys.sorted()
             val start = sorted.first()
             val end = sorted.last()
             TripAlbumEntity(
                 tripKey = "manual_split_${System.currentTimeMillis()}_${keys.hashCode()}",
-                generatedTitle = if (start == end) "$start $titleSuffix" else "$start ~ $end $titleSuffix",
+                generatedTitle = buildSplitTripTitle(start, end),
                 startDateKey = start,
                 endDateKey = end,
                 dateKeys = keys.joinToString(","),
@@ -499,8 +490,8 @@ class PhotoRepository(
             )
         }
 
-        val trip1 = createTrip(dateKeysToSplit, "遺꾨━??湲곕줉")
-        val trip2 = createTrip(remainingDateKeys, "遺꾨━??湲곕줉")
+        val trip1 = createTrip(dateKeysToSplit)
+        val trip2 = createTrip(remainingDateKeys)
 
         database.withTransaction {
             tripDao.insertAll(listOf(trip1, trip2))
@@ -509,7 +500,7 @@ class PhotoRepository(
         generateTripAlbums()
     }
 
-    // TODO: ?좎쭨 ?⑥쐞媛 ?꾨땶 媛쒕퀎 ?ъ쭊 ?⑥쐞???몃???遺꾨━ 湲곕뒫 援ы쁽 ?꾩슂
+    // TODO: Support splitting by selected media in addition to whole dates.
 
     suspend fun addPhotoToTrip(tripKey: String, photoMediaStoreId: Long) {
         addPhotosToTrip(tripKey, listOf(photoMediaStoreId))
