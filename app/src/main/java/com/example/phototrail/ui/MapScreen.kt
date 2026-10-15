@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.example.phototrail.R
+import com.example.phototrail.data.OverrideType
 import com.example.phototrail.data.PhotoItemEntity
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -82,20 +83,37 @@ private const val CLUSTERING_THRESHOLD = 15f
 fun MapScreen(
     viewModel: PhotoViewModel,
     dateFilter: String? = null,
+    tripKey: String? = null,
     onBackClick: () -> Unit,
     onOpenBucket: (String) -> Unit
 ) {
     val context = LocalContext.current
     val allPhotosWithLocation by viewModel.photosWithLocation.collectAsState()
+    val allOverrides by viewModel.allOverrides.collectAsState()
     
-    val photos = remember(allPhotosWithLocation, dateFilter) {
-        val filtered = if (dateFilter != null) {
-            val filters = dateFilter.split(",")
-            allPhotosWithLocation.filter { it.dateKey in filters }
+    val photos = remember(allPhotosWithLocation, allOverrides, dateFilter, tripKey) {
+        val dateKeys = dateFilter?.split(",")?.toSet()
+        val tripOverrides = if (tripKey == null) {
+            emptyMap()
         } else {
-            allPhotosWithLocation
+            allOverrides
+                .filter { it.tripKey == tripKey }
+                .associateBy { it.photoMediaStoreId }
         }
-        filtered.sortedBy { it.takenAt ?: 0L }
+
+        allPhotosWithLocation
+            .filter { photo ->
+                val overrideType = tripOverrides[photo.mediaStoreId]?.overrideType
+                val isInDateRange = dateKeys == null || photo.dateKey in dateKeys
+
+                if (tripKey == null) {
+                    isInDateRange
+                } else {
+                    (isInDateRange || overrideType == OverrideType.INCLUDE) &&
+                        overrideType != OverrideType.EXCLUDE
+                }
+            }
+            .sortedBy { it.takenAt ?: 0L }
     }
 
     val groups = remember(photos) {

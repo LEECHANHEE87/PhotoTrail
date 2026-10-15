@@ -185,7 +185,9 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("photos/trip/${album.tripKey}?dates=${album.dateKeys}")
                                 },
                                 onOpenTripOnMap = { album ->
-                                    navController.navigate("map?date=${album.dateKeys}")
+                                    navController.navigate(
+                                        "map?date=${album.dateKeys}&tripKey=${Uri.encode(album.tripKey)}"
+                                    )
                                 }
                             )
                         }
@@ -199,15 +201,19 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("photos/trip/${album.tripKey}?dates=${album.dateKeys}")
                                 },
                                 onOpenTripOnMap = { album ->
-                                    navController.navigate("map?date=${album.dateKeys}")
+                                    navController.navigate(
+                                        "map?date=${album.dateKeys}&tripKey=${Uri.encode(album.tripKey)}"
+                                    )
                                 }
                             )
                         }
-                        composable("map?date={date}") { entry ->
+                        composable("map?date={date}&tripKey={tripKey}") { entry ->
                             val dateFilter = entry.arguments?.getString("date")
+                            val tripKey = entry.arguments?.getString("tripKey")?.let(Uri::decode)
                             MapScreen(
                                 viewModel = photoViewModel,
                                 dateFilter = dateFilter,
+                                tripKey = tripKey,
                                 onBackClick = { navController.popBackStack() },
                                 onOpenBucket = { bucketKey ->
                                     navController.navigate(
