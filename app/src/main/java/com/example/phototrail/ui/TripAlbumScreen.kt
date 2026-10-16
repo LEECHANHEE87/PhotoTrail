@@ -451,15 +451,17 @@ fun TripAlbumCard(
                             icon = Icons.Default.Search
                         )
                         Box {
-                            OutlinedButton(
+                            OutlinedIconButton(
                                 onClick = { showMenu = true },
-                                modifier = Modifier.height(48.dp),
+                                modifier = Modifier.size(48.dp),
                                 shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp)
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
-                                Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.album_settings))
+                                Icon(
+                                    Icons.Default.Settings,
+                                    contentDescription = stringResource(R.string.album_settings),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                             DropdownMenu(
                                 expanded = showMenu,

@@ -17,6 +17,7 @@ data class PhotoItemEntity(
     val dateKey: String,
     val dateAdded: Long?,
     val dateModified: Long?,
+    val isScreenshot: Boolean = false,
     val indexedAt: Long,
     val lastSeenAt: Long
 )

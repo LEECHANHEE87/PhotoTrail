@@ -109,7 +109,8 @@ fun MapScreen(
                 if (tripKey == null) {
                     isInDateRange
                 } else {
-                    (isInDateRange || overrideType == OverrideType.INCLUDE) &&
+                    !photo.isScreenshot &&
+                        (isInDateRange || overrideType == OverrideType.INCLUDE) &&
                         overrideType != OverrideType.EXCLUDE
                 }
             }

@@ -209,7 +209,6 @@ fun PhotoGridScreen(
     onPhotoClick: (List<PhotoItemEntity>, Int) -> Unit,
     filter: (PhotoItemEntity) -> Boolean = { true },
     tripKey: String? = null,
-    onExcludePhoto: ((Long) -> Unit)? = null,
     onExcludePhotos: ((List<Long>) -> Unit)? = null,
     onSetRepresentative: ((String) -> Unit)? = null,
     onAddPhotosClick: (() -> Unit)? = null,
@@ -282,6 +281,22 @@ fun PhotoGridScreen(
                             Icon(Icons.Default.Check, contentDescription = stringResource(R.string.add))
                         }
                     } else if (isExcludeSelectionMode) {
+                        if (selectedIds.size == 1 && onSetRepresentative != null) {
+                            IconButton(
+                                onClick = {
+                                    visiblePhotos
+                                        .firstOrNull { it.mediaStoreId == selectedIds.first() }
+                                        ?.let { photo -> onSetRepresentative(photo.uri) }
+                                    selectedIds = emptySet()
+                                    isExcludeSelectionMode = false
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = stringResource(R.string.set_as_representative)
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = {
                                 onExcludePhotos?.invoke(selectedIds.toList())
@@ -348,10 +363,16 @@ fun PhotoGridScreen(
                                         onPhotoClick(visiblePhotos, visiblePhotos.indexOf(photo))
                                     }
                                 },
+                                onLongClick = if (!isSelectionMode && onExcludePhotos != null) {
+                                    {
+                                        selectedIds = setOf(photo.mediaStoreId)
+                                        isExcludeSelectionMode = true
+                                    }
+                                } else {
+                                    null
+                                },
                                 isSelected = photo.mediaStoreId in selectedIds,
-                                isSelectionMode = isPhotoSelectionMode,
-                                onExclude = if (onExcludePhoto != null) { { onExcludePhoto(photo.mediaStoreId) } } else null,
-                                onSetRepresentative = if (onSetRepresentative != null) { { onSetRepresentative(photo.uri) } } else null
+                                isSelectionMode = isPhotoSelectionMode
                             )
                         }
                         is TripGridEntry.Video -> TripVideoGridItem(
@@ -445,13 +466,10 @@ private fun formatTripVideoDuration(durationMs: Long): String {
 private fun PhotoGridItem(
     photo: PhotoItemEntity,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
     isSelected: Boolean,
-    isSelectionMode: Boolean,
-    onExclude: (() -> Unit)?,
-    onSetRepresentative: (() -> Unit)?
+    isSelectionMode: Boolean
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -459,7 +477,7 @@ private fun PhotoGridItem(
             .padding(1.dp)
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = { if (!isSelectionMode && (onExclude != null || onSetRepresentative != null)) showMenu = true }
+                onLongClick = onLongClick
             )
     ) {
         AsyncImage(
@@ -480,31 +498,6 @@ private fun PhotoGridItem(
             }
         }
 
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false }
-        ) {
-            onSetRepresentative?.let {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.set_as_representative)) },
-                    onClick = {
-                        showMenu = false
-                        it()
-                    },
-                    leadingIcon = { Icon(Icons.Default.Star, contentDescription = null) }
-                )
-            }
-            onExclude?.let {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.exclude_from_trip)) },
-                    onClick = {
-                        showMenu = false
-                        it()
-                    },
-                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
-                )
-            }
-        }
     }
 }
 

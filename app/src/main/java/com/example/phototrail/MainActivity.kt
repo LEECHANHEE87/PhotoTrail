@@ -292,16 +292,13 @@ class MainActivity : ComponentActivity() {
                                     val isBase = photo.dateKey in activeDateKeys
                                     val isExcluded = tripOverrides.any { it.photoMediaStoreId == photo.mediaStoreId && it.overrideType == OverrideType.EXCLUDE }
                                     val isIncluded = tripOverrides.any { it.photoMediaStoreId == photo.mediaStoreId && it.overrideType == OverrideType.INCLUDE }
-                                    (isBase || isIncluded) && !isExcluded
+                                    !photo.isScreenshot && (isBase || isIncluded) && !isExcluded
                                 },
                                 tripKey = tripKey,
                                 onBackClick = { navController.popBackStack() },
                                 onPhotoClick = { list, index ->
                                     photoViewModel.setViewerPhotos(list)
                                     navController.navigate("photo-viewer/$index")
-                                },
-                                onExcludePhoto = { photoId ->
-                                    photoViewModel.excludePhotoFromTrip(tripKey, photoId)
                                 },
                                 onExcludePhotos = { photoIds ->
                                     photoViewModel.excludePhotosFromTrip(tripKey, photoIds)
@@ -329,6 +326,7 @@ class MainActivity : ComponentActivity() {
                             PhotoGridScreen(
                                 title = getString(R.string.select_photos_to_add),
                                 photos = photoViewModel.allPhotos,
+                                filter = { !it.isScreenshot },
                                 isSelectionMode = true,
                                 onBackClick = { navController.popBackStack() },
                                 onPhotosSelected = { photoIds ->

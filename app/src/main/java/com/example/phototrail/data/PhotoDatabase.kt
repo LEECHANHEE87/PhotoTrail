@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MakingProjectEntity::class,
         TripVideoLinkEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -194,6 +194,28 @@ abstract class PhotoDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE photos ADD COLUMN isScreenshot INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    """
+                    UPDATE photos
+                    SET isScreenshot = 1
+                    WHERE lower(displayName) LIKE '%screenshot%'
+                       OR lower(displayName) LIKE '%screen_shot%'
+                       OR lower(displayName) LIKE '%screen shot%'
+                       OR lower(displayName) LIKE '%screen-capture%'
+                       OR lower(displayName) LIKE '%screen_capture%'
+                       OR lower(displayName) LIKE '%screencapture%'
+                       OR displayName LIKE '%스크린샷%'
+                       OR displayName LIKE '%화면 캡처%'
+                       OR displayName LIKE '%화면캡처%'
+                       OR displayName LIKE '%スクリーンショット%'
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): PhotoDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -208,7 +230,8 @@ abstract class PhotoDatabase : RoomDatabase() {
                         MIGRATION_4_5,
                         MIGRATION_5_6,
                         MIGRATION_6_7,
-                        MIGRATION_7_8
+                        MIGRATION_7_8,
+                        MIGRATION_8_9
                     )
                     .build().also { instance = it }
             }

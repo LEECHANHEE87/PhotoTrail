@@ -2,6 +2,7 @@
 
 import android.content.ContentUris
 import android.content.Context
+import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
@@ -32,13 +33,16 @@ class PhotoRepository(
 
     suspend fun indexPhotos(onProgress: (processed: Int, total: Int) -> Unit): IndexStats {
         val resolver = context.contentResolver
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DISPLAY_NAME,
-            MediaStore.Images.Media.DATE_TAKEN,
-            MediaStore.Images.Media.DATE_ADDED,
-            MediaStore.Images.Media.DATE_MODIFIED
-        )
+        val projection = buildList {
+            add(MediaStore.Images.Media._ID)
+            add(MediaStore.Images.Media.DISPLAY_NAME)
+            add(MediaStore.Images.Media.DATE_TAKEN)
+            add(MediaStore.Images.Media.DATE_ADDED)
+            add(MediaStore.Images.Media.DATE_MODIFIED)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                add(MediaStore.Images.Media.RELATIVE_PATH)
+            }
+        }.toTypedArray()
 
         val currentDbPhotos = dao.getAllPhotosSync().associateBy { it.mediaStoreId }
         val mediaStoreIds = mutableSetOf<Long>()
@@ -63,6 +67,11 @@ class PhotoRepository(
             val takenColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
             val addedColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
             val modifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
+            val relativePathColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH).takeIf { it >= 0 }
+            } else {
+                null
+            }
 
             while (cursor.moveToNext()) {
                 val msId = cursor.getLong(idColumn)
@@ -70,12 +79,16 @@ class PhotoRepository(
                 
                 val dateAdded = cursor.longOrNull(addedColumn)?.times(1_000L)
                 val dateModified = cursor.longOrNull(modifiedColumn)?.times(1_000L)
+                val displayName = cursor.getString(nameColumn)
+                val relativePath = relativePathColumn?.let(cursor::getString)
+                val isScreenshot = isScreenshotMedia(displayName, relativePath)
                 
                 val existingPhoto = currentDbPhotos[msId]
                 
                 val shouldUpdate = existingPhoto == null || 
                                    existingPhoto.dateModified != dateModified ||
-                                   existingPhoto.uri.isEmpty()
+                                   existingPhoto.uri.isEmpty() ||
+                                   existingPhoto.isScreenshot != isScreenshot
 
                 if (shouldUpdate) {
                     val uri = ContentUris.withAppendedId(
@@ -119,7 +132,7 @@ class PhotoRepository(
                         id = msId,
                         mediaStoreId = msId,
                         uri = uri.toString(),
-                        displayName = cursor.getString(nameColumn),
+                        displayName = displayName,
                         takenAt = takenAt,
                         latitude = latitude,
                         longitude = longitude,
@@ -128,6 +141,7 @@ class PhotoRepository(
                         dateKey = dateKey,
                         dateAdded = dateAdded,
                         dateModified = dateModified,
+                        isScreenshot = isScreenshot,
                         indexedAt = existingPhoto?.indexedAt ?: currentTime,
                         lastSeenAt = currentTime
                     )
@@ -168,7 +182,11 @@ class PhotoRepository(
     }
 
     suspend fun generateTripAlbums() {
-        val allPhotos = dao.getAllPhotosSync().sortedBy { it.takenAt }
+        val allPhotos = dao.getAllPhotosSync()
+            .asSequence()
+            .filterNot { it.isScreenshot }
+            .sortedBy { it.takenAt }
+            .toList()
         if (allPhotos.isEmpty()) {
             tripDao.deleteAllAutoTrips()
             refreshManualTrips(emptyList())
@@ -599,4 +617,24 @@ data class IndexStats(
     val unchangedCount: Int,
     val locationCount: Int,
     val noLocationCount: Int
+)
+
+internal fun isScreenshotMedia(displayName: String?, relativePath: String?): Boolean {
+    val normalized = sequenceOf(displayName, relativePath)
+        .filterNotNull()
+        .joinToString("/")
+        .lowercase(Locale.ROOT)
+        .replace("_", "")
+        .replace("-", "")
+        .replace(" ", "")
+
+    return SCREENSHOT_MARKERS.any(normalized::contains)
+}
+
+private val SCREENSHOT_MARKERS = listOf(
+    "screenshot",
+    "screencapture",
+    "스크린샷",
+    "화면캡처",
+    "スクリーンショット"
 )
